@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Smart Institute - Institutional Management Portal</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .hero-banner {
+      background-color: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem 2rem;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .hero-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--primary-navy);
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.5px;
+    }
+    .hero-desc {
+      font-size: 15px;
+      color: var(--text-secondary);
+      max-width: 720px;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+    .portal-gateway-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .gateway-card {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .gateway-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      background-color: var(--primary-blue-light);
+      color: var(--primary-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+    .gateway-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--primary-navy);
+      margin-bottom: 0.5rem;
+    }
+    .gateway-text {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 1.25rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Institutional Bar -->
+  <header style="background-color: var(--primary-navy); color: #fff; padding: 0.75rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-blue);">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="width: 32px; height: 32px; background: var(--primary-blue); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px;">AI</div>
+      <div>
+        <div style="font-weight: 700; font-size: 15px; letter-spacing: -0.2px;">AI SMART INSTITUTE</div>
+        <div style="font-size: 11px; color: #cbd5e1;">Management & Academic Information System</div>
+      </div>
+    </div>
+    <div>
+      <a href="login.html" class="btn btn-primary btn-sm">Student & Faculty Login</a>
+    </div>
+  </header>
+
+  <main style="max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem;">
+    <!-- Welcome Hero -->
+    <section class="hero-banner">
+      <h1 class="hero-title">Academic & Institutional Portal</h1>
+      <p class="hero-desc">
+        Welcome to the AI Smart Institute Management System. Access student academic records, class attendance schedules, examination scorecards, fee statements, and official administrative notifications.
+      </p>
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <a href="login.html" class="btn btn-primary">Go to Student Portal</a>
+        <a href="#about-system" class="btn btn-secondary">Portal Overview</a>
+      </div>
+    </section>
+
+    <!-- Gateway Portals -->
+    <div class="portal-gateway-grid">
+      <div class="gateway-card">
+        <div>
+          <div class="gateway-icon">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"></path></svg>
+          </div>
+          <h2 class="gateway-title">Student Information</h2>
+          <p class="gateway-text">View attendance percentages, examination marks, grading transcripts, course progress, and official certificates.</p>
+        </div>
+        <a href="login.html" class="btn btn-secondary btn-sm">Access Records &rarr;</a>
+      </div>
+
+      <div class="gateway-card">
+        <div>
+          <div class="gateway-icon">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          </div>
+          <h2 class="gateway-title">Institutional Notice Board</h2>
+          <p class="gateway-text">Stay informed on semester schedules, academic guidelines, faculty updates, and institutional circulars.</p>
+        </div>
+        <a href="login.html" class="btn btn-secondary btn-sm">View Notices &rarr;</a>
+      </div>
+
+      <div class="gateway-card">
+        <div>
+          <div class="gateway-icon">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+          </div>
+          <h2 class="gateway-title">Fees & Accounts</h2>
+          <p class="gateway-text">Track fee installment payments, download receipt vouchers, and review outstanding dues online.</p>
+        </div>
+        <a href="login.html" class="btn btn-secondary btn-sm">Check Balance &rarr;</a>
+      </div>
+    </div>
+
+    <!-- Institutional Specifications -->
+    <section id="about-system" class="card">
+      <div class="card-header">
+        <h2 class="card-title">System Features & Academic Architecture</h2>
+      </div>
+      <div class="card-body">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem;">
+          <div>
+            <h3 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 4px;">Direct Database Sync</h3>
+            <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">Real-time synchronization across academic departments, student registrations, and administrative databases.</p>
+          </div>
+          <div>
+            <h3 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 4px;">Role-Based Security</h3>
+            <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">Strict permission separation protecting student private data, grades, and accounting records.</p>
+          </div>
+          <div>
+            <h3 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 4px;">Automated Certificate Issuance</h3>
+            <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">Official digital certificates verified through unique institutional registration identifiers.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer style="border-top: 1px solid var(--border-color); background-color: #ffffff; padding: 2rem 1.5rem; text-align: center; font-size: 12.5px; color: var(--text-muted);">
+    &copy; 2026 AI Smart Institute. All rights reserved. Professional Educational ERP System.
+  </footer>
+
+</body>
+</html>

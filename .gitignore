@@ -1,0 +1,16 @@
+.venv/
+.venv-1/
+__pycache__/
+*.pyc
+.env
+.env.local
+.env.*
+!.env.example
+institute.db
+
+reports/pdf/*
+reports/excel/*
+certificates/generated/*
+logs/*
+node_modules/
+dist/
