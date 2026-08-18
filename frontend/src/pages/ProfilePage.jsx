@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import { User, Mail, Phone, MapPin, Calendar, BookOpen, Layers, Save, CheckCircle2, AlertCircle, Shield } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, BookOpen, Layers, Save, CheckCircle2, AlertCircle, Shield, QrCode, CreditCard, Award, Building } from 'lucide-react';
 
 export function ProfilePage() {
   const { user } = useAuth();
@@ -21,7 +21,15 @@ export function ProfilePage() {
     gender: 'Male',
     qualification: '',
     specialization: '',
-    department: ''
+    department: '',
+    // Institute Payment & Certificate Settings
+    payment_upi_id: '',
+    payment_qr_code_url: '',
+    payment_bank_details: '',
+    payment_instructions: '',
+    certificate_title: '',
+    certificate_signatory_name: '',
+    certificate_logo_url: ''
   });
 
   const loadProfile = async () => {
@@ -33,41 +41,49 @@ export function ProfilePage() {
         const res = await api.getStudent(user.username);
         if (res.student) {
           setProfile(res.student);
-          setFormData({
+          setFormData(prev => ({
+            ...prev,
             name: res.student.name || '',
             email: res.student.email || '',
             mobile: res.student.mobile || '',
             address: res.student.address || '',
             date_of_birth: res.student.date_of_birth || '',
-            gender: res.student.gender || 'Male',
-            qualification: '',
-            specialization: '',
-            department: ''
-          });
+            gender: res.student.gender || 'Male'
+          }));
         }
       } else if (role === 'faculty' && user?.username) {
         const res = await api.getFaculty(user.username);
         if (res.faculty) {
           setProfile(res.faculty);
-          setFormData({
+          setFormData(prev => ({
+            ...prev,
             name: res.faculty.name || '',
             email: res.faculty.email || '',
             mobile: res.faculty.mobile || '',
             address: res.faculty.address || '',
-            date_of_birth: '',
-            gender: 'Male',
             qualification: res.faculty.qualification || '',
             specialization: res.faculty.specialization || '',
             department: res.faculty.department || ''
-          });
+          }));
         }
       } else {
-        // Admin
-        setProfile({
-          username: user?.username,
-          role: 'Administrator',
-          name: 'System Administrator'
-        });
+        // Institute Admin
+        const inst = await api.getInstituteProfile();
+        setProfile(inst);
+        setFormData(prev => ({
+          ...prev,
+          name: inst.name || '',
+          email: inst.email || '',
+          mobile: inst.contact_number || '',
+          address: inst.address || '',
+          payment_upi_id: inst.payment_upi_id || '',
+          payment_qr_code_url: inst.payment_qr_code_url || '',
+          payment_bank_details: inst.payment_bank_details || '',
+          payment_instructions: inst.payment_instructions || '',
+          certificate_title: inst.certificate_title || 'Course Completion Certificate',
+          certificate_signatory_name: inst.certificate_signatory_name || 'Academic Director',
+          certificate_logo_url: inst.certificate_logo_url || ''
+        }));
       }
     } catch (err) {
       setError(err.message || 'Failed to load profile record.');
@@ -109,6 +125,21 @@ export function ProfilePage() {
           department: formData.department
         });
         setSuccess('Faculty profile details updated successfully!');
+      } else {
+        // Institute Admin Profile & Payment Settings Update
+        await api.updateInstituteProfile({
+          name: formData.name,
+          contact_number: formData.mobile,
+          address: formData.address,
+          payment_upi_id: formData.payment_upi_id,
+          payment_qr_code_url: formData.payment_qr_code_url,
+          payment_bank_details: formData.payment_bank_details,
+          payment_instructions: formData.payment_instructions,
+          certificate_title: formData.certificate_title,
+          certificate_signatory_name: formData.certificate_signatory_name,
+          certificate_logo_url: formData.certificate_logo_url
+        });
+        setSuccess('Institute settings, payment configuration & certificate details updated successfully!');
       }
       loadProfile();
     } catch (err) {
@@ -123,82 +154,55 @@ export function ProfilePage() {
   }
 
   const role = (user?.role || 'student').toLowerCase();
+  const isAdminRole = ['admin', 'institute', 'institute_admin'].includes(role);
 
   return (
-    <div>
+    <div className="page-container" style={{ padding: '1.5rem', maxWidth: '1000px', margin: '0 auto' }}>
+      <div style={{ marginBottom: '1.5rem' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-main)' }}>
+          {isAdminRole ? 'Institute & Profile Settings' : 'My Profile'}
+        </h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
+          Manage your personal information, institutional credentials, payment gateways, and certificate templates.
+        </p>
+      </div>
+
       {error && (
-        <div className="alert alert-danger">
+        <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
           <AlertCircle size={16} />
-          <div>{error}</div>
+          <span>{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="alert alert-success">
+        <div className="alert alert-success" style={{ marginBottom: '1rem' }}>
           <CheckCircle2 size={16} />
-          <div>{success}</div>
+          <span>{success}</span>
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>
         
-        {/* Profile Card Summary */}
+        {/* Profile Card */}
         <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">
-              <User size={18} />
-              Identity & Role Information
-            </h2>
+          <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <User size={20} color="var(--primary-color)" />
+            <h2 className="card-title">Profile Overview</h2>
           </div>
-          <div className="card-body" style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
-            <div style={{
-              width: '64px',
-              height: '64px',
-              background: 'var(--primary-navy)',
-              color: '#fff',
-              borderRadius: '50%',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 800,
-              fontSize: '24px',
-              marginBottom: '1rem'
-            }}>
-              {(formData.name || user?.username || 'U').charAt(0).toUpperCase()}
-            </div>
-            
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--primary-navy)' }}>
-              {formData.name || profile?.name || user?.username}
-            </h3>
-            <div style={{ marginTop: '4px' }}>
-              <span className="badge badge-info" style={{ textTransform: 'uppercase', fontSize: '11px' }}>
-                <Shield size={11} /> {user?.role || 'User'}
-              </span>
-            </div>
-
-            <div style={{ marginTop: '1.5rem', textAlign: 'left', borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Identifier / ID:</span>
-                <strong>{user?.username}</strong>
+          <div className="card-body">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              <div>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Institute Code</span>
+                <p style={{ fontWeight: 600, color: 'var(--primary-color)' }}>{profile?.institute_code || user?.institute_code || 'N/A'}</p>
               </div>
-              {profile?.course && (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Enrolled Course:</span>
-                  <span>{profile.course}</span>
-                </div>
-              )}
-              {profile?.batch && (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Cohort Batch:</span>
-                  <span>{profile.batch}</span>
-                </div>
-              )}
-              {profile?.department && (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Department:</span>
-                  <span>{profile.department}</span>
-                </div>
-              )}
+              <div>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Role</span>
+                <p style={{ fontWeight: 600, textTransform: 'capitalize' }}>{user?.role || 'User'}</p>
+              </div>
+              <div>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Identifier / Username</span>
+                <p style={{ fontWeight: 600 }}>{user?.username || profile?.registration_id || profile?.employee_id || '—'}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -207,116 +211,157 @@ export function ProfilePage() {
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">
-              Edit Account Information
+              {isAdminRole ? 'Configure Institute & Payment Settings' : 'Edit Personal Profile'}
             </h2>
           </div>
           <div className="card-body">
-            {role === 'admin' ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                System Administrator accounts are managed through root administrative security configurations.
-              </p>
-            ) : (
-              <form onSubmit={handleSave}>
+            <form onSubmit={handleSave}>
+              <div className="form-group">
+                <label className="form-label">{isAdminRole ? 'Institute / Organization Name' : 'Full Name'} <span className="required">*</span></label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Full Name <span className="required">*</span></label>
+                  <label className="form-label">Email Address <span className="required">*</span></label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    required={!isAdminRole}
+                    disabled={isAdminRole}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Contact Mobile Number</label>
                   <input
                     type="text"
                     className="form-control"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
+                    value={formData.mobile}
+                    onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
                   />
                 </div>
+              </div>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Email Address <span className="required">*</span></label>
-                    <input
-                      type="email"
-                      className="form-control"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Mobile Number</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={formData.mobile}
-                      onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-                    />
-                  </div>
-                </div>
+              <div className="form-group">
+                <label className="form-label">Address</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                />
+              </div>
 
-                {role === 'student' && (
+              {/* Institute Payment Details Section for Admin */}
+              {isAdminRole && (
+                <>
+                  <div style={{ borderTop: '1px solid var(--border-color)', margin: '1.5rem 0 1rem 0', paddingTop: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                      <QrCode size={18} color="var(--primary-color)" />
+                      <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', margin: 0 }}>
+                        Institute Payment Gateway Settings (UPI & QR Code)
+                      </h3>
+                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                      Students enrolling in your courses will see these UPI payment details to pay course fees.
+                    </p>
+                  </div>
+
                   <div className="form-row">
                     <div className="form-group">
-                      <label className="form-label">Date of Birth</label>
-                      <input
-                        type="date"
-                        className="form-control"
-                        value={formData.date_of_birth}
-                        onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Gender</label>
-                      <select
-                        className="form-control"
-                        value={formData.gender}
-                        onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                      >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-
-                {role === 'faculty' && (
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label className="form-label">Department</label>
+                      <label className="form-label">Institute UPI ID (e.g. yourname@upi or institute@okaxis)</label>
                       <input
                         type="text"
                         className="form-control"
-                        value={formData.department}
-                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                        placeholder="e.g. institute@upi"
+                        value={formData.payment_upi_id}
+                        onChange={(e) => setFormData({ ...formData, payment_upi_id: e.target.value })}
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Specialization</label>
+                      <label className="form-label">Payment QR Code Image URL</label>
                       <input
                         type="text"
                         className="form-control"
-                        value={formData.specialization}
-                        onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                        placeholder="https://example.com/qr-code.png or image URL"
+                        value={formData.payment_qr_code_url}
+                        onChange={(e) => setFormData({ ...formData, payment_qr_code_url: e.target.value })}
                       />
                     </div>
                   </div>
-                )}
 
-                <div className="form-group">
-                  <label className="form-label">Address</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  />
-                </div>
+                  <div className="form-group">
+                    <label className="form-label">Bank Account Details (Bank Name, Account No, IFSC Code)</label>
+                    <textarea
+                      className="form-control"
+                      rows={3}
+                      placeholder="Bank: State Bank of India&#10;A/C: 1234567890&#10;IFSC: SBIN0001234"
+                      value={formData.payment_bank_details}
+                      onChange={(e) => setFormData({ ...formData, payment_bank_details: e.target.value })}
+                    />
+                  </div>
 
-                <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'flex-end' }}>
-                  <button type="submit" className="btn btn-primary" disabled={saving}>
-                    <Save size={14} />
-                    {saving ? 'Saving Changes...' : 'Save Profile Changes'}
-                  </button>
-                </div>
-              </form>
-            )}
+                  <div className="form-group">
+                    <label className="form-label">Student Payment Instructions</label>
+                    <textarea
+                      className="form-control"
+                      rows={2}
+                      placeholder="e.g., Scan QR or transfer via UPI ID. Share receipt or UTR transaction ID with Institute Admin."
+                      value={formData.payment_instructions}
+                      onChange={(e) => setFormData({ ...formData, payment_instructions: e.target.value })}
+                    />
+                  </div>
+
+                  {/* Certificate Settings */}
+                  <div style={{ borderTop: '1px solid var(--border-color)', margin: '1.5rem 0 1rem 0', paddingTop: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                      <Award size={18} color="var(--primary-color)" />
+                      <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', margin: 0 }}>
+                        Custom Certificate Template Settings
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Certificate Title Header</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g. CERTIFICATE OF EXCELLENCE"
+                        value={formData.certificate_title}
+                        onChange={(e) => setFormData({ ...formData, certificate_title: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Authorized Signatory Name / Title</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g. Dr. A. Sharma, Director"
+                        value={formData.certificate_signatory_name}
+                        onChange={(e) => setFormData({ ...formData, certificate_signatory_name: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  <Save size={14} />
+                  {saving ? 'Saving Settings...' : 'Save Profile & Settings'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
 

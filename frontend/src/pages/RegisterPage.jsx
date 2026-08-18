@@ -1,23 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import {
   Building2,
+  UserPlus,
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
   ArrowRight,
-  Eye,
-  EyeOff,
-  Info,
+  Clock,
+  GraduationCap,
+  BookOpen,
   Sparkles
 } from 'lucide-react';
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('student'); // 'student' or 'institute'
 
-  // Form Fields
-  const [formData, setFormData] = useState({
+  const [publicCourses, setPublicCourses] = useState([]);
+
+  // Student Form Fields
+  const [studentForm, setStudentForm] = useState({
+    name: '',
+    email: '',
+    mobile: '',
+    institute_code: 'ITE-001',
+    course: '',
+    password: '',
+    confirmPassword: '',
+    gender: 'Male',
+    date_of_birth: '',
+    address: ''
+  });
+
+  // Institute Form Fields
+  const [instForm, setInstForm] = useState({
     name: '',
     email: '',
     contact_number: '',
@@ -27,55 +45,100 @@ export function RegisterPage() {
     confirmPassword: ''
   });
 
-  // UI state
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [registeredInfo, setRegisteredInfo] = useState(null);
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
+  useEffect(() => {
+    async function loadCourses() {
+      try {
+        const data = await api.getPublicCourses(studentForm.institute_code);
+        if (Array.isArray(data)) {
+          setPublicCourses(data);
+          if (data.length > 0) {
+            setStudentForm(prev => ({ ...prev, course: data[0].name }));
+          } else {
+            setStudentForm(prev => ({ ...prev, course: '' }));
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load public courses:', err);
+      }
+    }
+    loadCourses();
+  }, [studentForm.institute_code]);
 
-  const validateForm = () => {
-    if (!formData.name.trim()) return 'Please enter the official Institute Name.';
-    if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email)) return 'Please provide a valid official email address.';
-    if (!formData.contact_number.trim() || formData.contact_number.replace(/\D/g, '').length < 10) return 'Please enter a valid 10-digit contact number.';
-    if (!formData.password) return 'Password is required.';
-    if (formData.password.length < 6) return 'Password must be at least 6 characters in length.';
-    if (formData.password !== formData.confirmPassword) return 'Passwords do not match.';
-    return null;
-  };
 
-  const handleSubmit = async (e) => {
+  const handleStudentSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setRegisteredInfo(null);
 
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
-      return;
+    if (!studentForm.name.trim()) return setError('Please enter your full name.');
+    if (!studentForm.email.trim() || !/\S+@\S+\.\S+/.test(studentForm.email)) return setError('Please enter a valid email address.');
+    if (!studentForm.mobile.trim() || studentForm.mobile.length < 10) return setError('Please enter a valid 10-digit mobile number.');
+    if (!studentForm.institute_code.trim()) return setError('Please enter your Institute Code (e.g. ITE-001).');
+    if (!studentForm.password || studentForm.password.length < 6) return setError('Password must be at least 6 characters.');
+    if (studentForm.password !== studentForm.confirmPassword) return setError('Passwords do not match.');
+
+    setLoading(true);
+    try {
+      const res = await api.selfRegisterStudent({
+        name: studentForm.name.trim(),
+        email: studentForm.email.trim(),
+        mobile: studentForm.mobile.trim(),
+        institute_code: studentForm.institute_code.trim(),
+        course: studentForm.course,
+        password: studentForm.password,
+        gender: studentForm.gender,
+        date_of_birth: studentForm.date_of_birth || null,
+        address: studentForm.address || null
+      });
+
+      setRegisteredInfo({
+        type: 'student',
+        registration_id: res.registration_id,
+        institute_code: studentForm.institute_code.trim(),
+        name: studentForm.name.trim(),
+        email: studentForm.email.trim(),
+        course: studentForm.course
+      });
+    } catch (err) {
+      setError(err.message || 'Student registration failed.');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleInstituteSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setRegisteredInfo(null);
+
+    if (!instForm.name.trim()) return setError('Please enter Institute Name.');
+    if (!instForm.email.trim() || !/\S+@\S+\.\S+/.test(instForm.email)) return setError('Please enter valid email.');
+    if (!instForm.contact_number.trim()) return setError('Please enter contact number.');
+    if (!instForm.password || instForm.password.length < 6) return setError('Password must be at least 6 characters.');
+    if (instForm.password !== instForm.confirmPassword) return setError('Passwords do not match.');
 
     setLoading(true);
     try {
       const response = await api.registerInstitute({
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        contact_number: formData.contact_number.trim(),
-        address: formData.address.trim() || null,
-        preferred_code: formData.preferred_code.trim() || null,
-        password: formData.password
+        name: instForm.name.trim(),
+        email: instForm.email.trim(),
+        contact_number: instForm.contact_number.trim(),
+        address: instForm.address.trim() || null,
+        preferred_code: instForm.preferred_code.trim() || null,
+        password: instForm.password
       });
 
-      setRegisteredInfo(response);
+      setRegisteredInfo({
+        type: 'institute',
+        institute: response.institute,
+        login: response.login
+      });
     } catch (err) {
-      setError(err.message || 'Institute registration failed. Please try again.');
+      setError(err.message || 'Institute registration failed.');
     } finally {
       setLoading(false);
     }
@@ -97,10 +160,67 @@ export function RegisterPage() {
             marginBottom: '10px',
             boxShadow: '0 4px 12px rgba(37,99,235,0.2)'
           }}>
-            <Building2 size={24} />
+            {activeTab === 'student' ? <GraduationCap size={24} /> : <Building2 size={24} />}
           </div>
-          <h1 style={{ fontSize: '22px', letterSpacing: '-0.5px' }}>Register Your Institute</h1>
-          <p>Multi-Tenant Institutional Administration Portal</p>
+          <h1 style={{ fontSize: '22px', letterSpacing: '-0.5px' }}>
+            {activeTab === 'student' ? 'Direct Student Registration' : 'Register New Institute'}
+          </h1>
+          <p>AI Smart Institute Academic Portal</p>
+
+          {/* Tab Selection */}
+          <div style={{
+            display: 'flex',
+            background: '#f1f5f9',
+            borderRadius: '8px',
+            padding: '4px',
+            marginTop: '1rem',
+            gap: '4px'
+          }}>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('student'); setError(''); setRegisteredInfo(null); }}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+                background: activeTab === 'student' ? '#ffffff' : 'transparent',
+                color: activeTab === 'student' ? 'var(--primary-blue)' : 'var(--text-muted)',
+                boxShadow: activeTab === 'student' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              <GraduationCap size={16} /> Student Sign Up
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('institute'); setError(''); setRegisteredInfo(null); }}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+                background: activeTab === 'institute' ? '#ffffff' : 'transparent',
+                color: activeTab === 'institute' ? 'var(--primary-blue)' : 'var(--text-muted)',
+                boxShadow: activeTab === 'institute' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              <Building2 size={16} /> Institute Register
+            </button>
+          </div>
         </div>
 
         <div className="auth-body">
@@ -113,283 +233,386 @@ export function RegisterPage() {
 
           {registeredInfo ? (
             <div style={{
-              background: 'rgba(16, 185, 129, 0.08)',
+              background: 'rgba(16,185,129,0.06)',
               border: '1px solid #10b981',
-              borderRadius: '8px',
-              padding: '1.5rem',
+              borderRadius: '12px',
+              padding: '1.75rem',
               textAlign: 'center',
               marginBottom: '1rem'
             }}>
-              <CheckCircle2 size={42} style={{ color: '#10b981', margin: '0 auto 12px' }} />
-              <h3 style={{ margin: '0 0 6px', color: '#065f46' }}>Institute Registration Successful!</h3>
-              <p style={{ margin: '0 0 14px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-                Your institute has been registered on the network.
-              </p>
+              {registeredInfo.type === 'student' ? (
+                <>
+                  <CheckCircle2 size={48} style={{ color: '#10b981', margin: '0 auto 12px' }} />
+                  <h3 style={{ margin: '0 0 6px', color: '#065f46', fontWeight: 800 }}>
+                    Student Registration Complete & Activated!
+                  </h3>
+                  <p style={{ margin: '0 0 16px', fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    Your account under Institute Code <strong>[{registeredInfo.institute_code}]</strong> is active. You can log in immediately using your assigned Enrollment Number.
+                  </p>
 
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid rgba(16,185,129,0.3)',
+                    borderRadius: '8px',
+                    padding: '1.25rem',
+                    marginBottom: '1.5rem',
+                    textAlign: 'left',
+                    display: 'grid',
+                    gap: '10px',
+                    fontSize: '13px'
+                  }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Full Name</span>
+                      <strong>{registeredInfo.name}</strong> ({registeredInfo.email})
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Institute Code</span>
+                      <strong style={{ color: 'var(--primary-blue)' }}>{registeredInfo.institute_code}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Selected Course</span>
+                      <strong>{registeredInfo.course || 'General Admission'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Official Enrollment Number / Student ID</span>
+                      <span style={{
+                        display: 'inline-block',
+                        background: 'var(--primary-navy, #0f172a)',
+                        color: '#60a5fa',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontWeight: 800,
+                        fontSize: '15px'
+                      }}>
+                        {registeredInfo.registration_id}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-block"
+                    onClick={() => navigate('/login')}
+                  >
+                    Proceed to Portal Log In <ArrowRight size={16} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={48} style={{ color: '#10b981', margin: '0 auto 12px' }} />
+                  <h3 style={{ margin: '0 0 6px', color: '#065f46' }}>Institute Registration Complete!</h3>
+                  <p style={{ margin: '0 0 14px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+                    Your institute environment is provisioned and ready.
+                  </p>
+
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid rgba(16,185,129,0.3)',
+                    borderRadius: '8px',
+                    padding: '1rem',
+                    marginBottom: '1.25rem',
+                    textAlign: 'left',
+                    display: 'grid',
+                    gap: '8px',
+                    fontSize: '13px'
+                  }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Institute Name</span>
+                      <strong>{registeredInfo.institute?.name}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Assigned Code</span>
+                      <strong>{registeredInfo.institute?.institute_code}</strong>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-block"
+                    onClick={() => navigate('/login')}
+                  >
+                    Proceed to Log In <ArrowRight size={16} />
+                  </button>
+                </>
+              )}
+            </div>
+          ) : activeTab === 'student' ? (
+            /* STUDENT REGISTRATION FORM */
+            <form onSubmit={handleStudentSubmit}>
               <div style={{
-                background: '#ffffff',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
+                background: 'rgba(37,99,235,0.06)',
+                borderLeft: '4px solid #2563eb',
+                padding: '10px 12px',
                 borderRadius: '6px',
-                padding: '1rem',
-                marginBottom: '1.25rem',
-                textAlign: 'left',
-                display: 'grid',
-                gap: '8px',
-                fontSize: '13px'
+                marginBottom: '1rem',
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
               }}>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Institute Name</span>
-                  <strong>{registeredInfo.institute?.name}</strong>
+                <Sparkles size={16} color="#2563eb" style={{ flexShrink: 0 }} />
+                <span>
+                  Enter your <strong>Institute Code</strong> and select your desired <strong>Course</strong>. Registration is instant and your official Enrollment Number will be generated immediately upon sign up!
+                </span>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Institute Code <span className="required">*</span></label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. ITE-001"
+                    value={studentForm.institute_code}
+                    onChange={(e) => setStudentForm({ ...studentForm, institute_code: e.target.value.toUpperCase() })}
+                    required
+                  />
+                  <small style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Enter your institute's assigned code</small>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Assigned Institute Code</span>
-                    <span style={{
-                      display: 'inline-block',
-                      background: 'var(--primary-navy, #0f172a)',
-                      color: '#ffffff',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      fontWeight: 700,
-                      letterSpacing: '0.5px'
-                    }}>
-                      {registeredInfo.institute?.institute_code}
-                    </span>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Admin Username</span>
-                    <strong>{registeredInfo.login?.username}</strong>
-                  </div>
+
+                <div className="form-group">
+                  <label className="form-label">Select Desired Course <span className="required">*</span></label>
+                  <select
+                    className="form-control"
+                    value={studentForm.course}
+                    onChange={(e) => setStudentForm({ ...studentForm, course: e.target.value })}
+                    required
+                  >
+                    {publicCourses.length > 0 ? (
+                      publicCourses.map(c => (
+                        <option key={c.id} value={c.name}>
+                          {c.course_code} - {c.name} {c.fees ? `(₹${parseFloat(c.fees).toLocaleString()})` : ''}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Full Stack Web Development">Full Stack Web Development</option>
+                        <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                        <option value="Artificial Intelligence & Data Science">Artificial Intelligence & Data Science</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Full Name <span className="required">*</span></label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Rahul Verma"
+                  value={studentForm.name}
+                  onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Email Address (Gmail) <span className="required">*</span></label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    placeholder="student@gmail.com"
+                    value={studentForm.email}
+                    onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Mobile Number <span className="required">*</span></label>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    placeholder="10-digit mobile number"
+                    value={studentForm.mobile}
+                    onChange={(e) => setStudentForm({ ...studentForm, mobile: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Gender</label>
+                  <select
+                    className="form-control"
+                    value={studentForm.gender}
+                    onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value })}
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Date of Birth</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={studentForm.date_of_birth}
+                    onChange={(e) => setStudentForm({ ...studentForm, date_of_birth: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Residential Address</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Residential Address"
+                  value={studentForm.address}
+                  onChange={(e) => setStudentForm({ ...studentForm, address: e.target.value })}
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Password <span className="required">*</span></label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    placeholder="At least 6 characters"
+                    value={studentForm.password}
+                    onChange={(e) => setStudentForm({ ...studentForm, password: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Confirm Password <span className="required">*</span></label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    placeholder="Re-enter password"
+                    value={studentForm.confirmPassword}
+                    onChange={(e) => setStudentForm({ ...studentForm, confirmPassword: e.target.value })}
+                    required
+                  />
                 </div>
               </div>
 
               <button
-                type="button"
+                type="submit"
                 className="btn btn-primary btn-block"
-                onClick={() => navigate('/login')}
+                style={{ marginTop: '0.75rem' }}
+                disabled={loading}
               >
-                Proceed to Sign In <ArrowRight size={16} />
+                {loading ? 'Submitting Registration Request...' : 'Submit Student Registration Request'}
               </button>
-            </div>
+            </form>
           ) : (
-            <>
-              {/* Informational Callout */}
-              <div style={{
-                background: 'rgba(37, 99, 235, 0.05)',
-                border: '1px solid rgba(37, 99, 235, 0.15)',
-                borderRadius: '6px',
-                padding: '10px 14px',
-                marginBottom: '1.25rem',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '10px',
-                fontSize: '12.5px',
-                color: 'var(--text-secondary)'
-              }}>
-                <Info size={18} style={{ color: 'var(--primary-blue, #2563eb)', flexShrink: 0, marginTop: '2px' }} />
-                <div>
-                  <strong>Are you a Student?</strong> Students are enrolled directly by their Institute and will receive their unique <strong>Student ID & Password</strong> via Gmail. Only Institute Admins need to create an account here.
-                </div>
+            /* INSTITUTE REGISTRATION FORM */
+            <form onSubmit={handleInstituteSubmit}>
+              <div className="form-group">
+                <label className="form-label">Institute Name <span className="required">*</span></label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. AI Smart Institute"
+                  value={instForm.name}
+                  onChange={(e) => setInstForm({ ...instForm, name: e.target.value })}
+                  required
+                />
               </div>
 
-              <form onSubmit={handleSubmit}>
+              <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label" htmlFor="name">
-                    Institute Name <span className="required">*</span>
-                  </label>
+                  <label className="form-label">Institute Code / Acronym</label>
                   <input
                     type="text"
-                    id="name"
-                    name="name"
                     className="form-control"
-                    placeholder="e.g. ITE Institute of Technology & Engineering"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                    autoFocus
+                    placeholder="e.g. ITE-001"
+                    value={instForm.preferred_code}
+                    onChange={(e) => setInstForm({ ...instForm, preferred_code: e.target.value })}
                   />
                 </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="preferred_code">
-                      Institute Code / Acronym <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>(Optional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="preferred_code"
-                      name="preferred_code"
-                      className="form-control"
-                      placeholder="e.g. ITE (auto becomes ITE-001)"
-                      value={formData.preferred_code}
-                      onChange={handleChange}
-                    />
-                    <small style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px', display: 'block' }}>
-                      Codes are automatically sequenced (e.g. ITE-001) to ensure uniqueness.
-                    </small>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="email">
-                      Official Admin Email <span className="required">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      className="form-control"
-                      placeholder="admissions@institute.edu"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
+                <div className="form-group">
+                  <label className="form-label">Official Email <span className="required">*</span></label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    placeholder="admin@institute.com"
+                    value={instForm.email}
+                    onChange={(e) => setInstForm({ ...instForm, email: e.target.value })}
+                    required
+                  />
                 </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="contact_number">
-                      Contact / Helpline Phone <span className="required">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      id="contact_number"
-                      name="contact_number"
-                      className="form-control"
-                      placeholder="+91 98765 43210"
-                      value={formData.contact_number}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="address">
-                      Campus Address
-                    </label>
-                    <input
-                      type="text"
-                      id="address"
-                      name="address"
-                      className="form-control"
-                      placeholder="City, State / Campus location"
-                      value={formData.address}
-                      onChange={handleChange}
-                    />
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="password">
-                      Admin Master Password <span className="required">*</span>
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        id="password"
-                        name="password"
-                        className="form-control"
-                        placeholder="Minimum 6 characters"
-                        value={formData.password}
-                        onChange={handleChange}
-                        required
-                        style={{ paddingRight: '2.5rem' }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        style={{
-                          position: 'absolute',
-                          right: '8px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--text-muted)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '4px'
-                        }}
-                        aria-label="Toggle password visibility"
-                      >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="confirmPassword">
-                      Confirm Password <span className="required">*</span>
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        className="form-control"
-                        placeholder="Re-enter password"
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        required
-                        style={{ paddingRight: '2.5rem' }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        style={{
-                          position: 'absolute',
-                          right: '8px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--text-muted)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '4px'
-                        }}
-                        aria-label="Toggle confirm password visibility"
-                      >
-                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-block"
-                  style={{ marginTop: '0.75rem' }}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <span>Registering Institute & Provisioning Environment...</span>
-                  ) : (
-                    <>
-                      <ShieldCheck size={17} />
-                      <span>Register Institute & Access Dashboard</span>
-                    </>
-                  )}
-                </button>
-              </form>
-
-              <div style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Already registered your institute or have student login?{' '}
-                <Link to="/login" style={{ fontWeight: 600, color: 'var(--primary-blue, #2563eb)' }}>
-                  Sign In to Portal &rarr;
-                </Link>
               </div>
-            </>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Helpline Phone <span className="required">*</span></label>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    placeholder="+91 98765 43210"
+                    value={instForm.contact_number}
+                    onChange={(e) => setInstForm({ ...instForm, contact_number: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Campus Address</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="City, State"
+                    value={instForm.address}
+                    onChange={(e) => setInstForm({ ...instForm, address: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Password <span className="required">*</span></label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    value={instForm.password}
+                    onChange={(e) => setInstForm({ ...instForm, password: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Confirm Password <span className="required">*</span></label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    value={instForm.confirmPassword}
+                    onChange={(e) => setInstForm({ ...instForm, confirmPassword: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary btn-block"
+                style={{ marginTop: '0.75rem' }}
+                disabled={loading}
+              >
+                {loading ? 'Registering Institute...' : 'Register Institute Account'}
+              </button>
+            </form>
           )}
+
+          <div style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '13px', color: 'var(--text-secondary)' }}>
+            Already registered?{' '}
+            <Link to="/login" style={{ fontWeight: 600, color: 'var(--primary-blue, #2563eb)' }}>
+              Sign In to Portal &rarr;
+            </Link>
+          </div>
         </div>
 
         <div className="auth-footer">
-          <div>Multi-Tenant Institute Management System • Dedicated per-institute environment</div>
+          <div>AI Smart Institute Academic Portal • Self Registration & Management</div>
         </div>
       </div>
     </div>
   );
 }
+
+export default RegisterPage;

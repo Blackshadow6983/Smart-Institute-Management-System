@@ -124,36 +124,6 @@ def create_institute(
     )
     db.add(admin_rec)
 
-    # Add default foundation courses for this institute
-    default_courses = [
-        Course(
-            institute_code=inst_code,
-            course_code=f"{inst_code}-CS101",
-            name="Computer Science & Engineering",
-            description="Foundation & Advanced Computer Science Program",
-            duration="4 Years",
-            fees=45000
-        ),
-        Course(
-            institute_code=inst_code,
-            course_code=f"{inst_code}-AI201",
-            name="Artificial Intelligence & Data Science",
-            description="Machine Learning, Deep Learning, and AI Systems",
-            duration="1 Year",
-            fees=35000
-        ),
-        Course(
-            institute_code=inst_code,
-            course_code=f"{inst_code}-WD100",
-            name="Full Stack Web Development Bootcamp",
-            description="Modern Web Applications with React & Python",
-            duration="6 Months",
-            fees=20000
-        )
-    ]
-    for c in default_courses:
-        db.add(c)
-
     db.commit()
     db.refresh(institute)
     db.refresh(user)
@@ -190,8 +160,7 @@ def get_institute_for_user(db: Session, current_user: dict):
         if student and student.institute_code:
             return get_institute_by_code(db, student.institute_code)
 
-    # Fallback to first institute or create default
-    return db.query(Institute).first()
+    return None
 
 
 def get_institute_stats(db: Session, institute_code: str):
@@ -203,9 +172,10 @@ def get_institute_stats(db: Session, institute_code: str):
 
     total_courses = (
         db.query(func.count(Course.id))
-        .filter((Course.institute_code == institute_code) | (Course.institute_code == None))
+        .filter(Course.institute_code == institute_code)
         .scalar() or 0
     )
+
 
     students = db.query(Student).filter(Student.institute_code == institute_code).all()
     student_ids = [s.id for s in students]

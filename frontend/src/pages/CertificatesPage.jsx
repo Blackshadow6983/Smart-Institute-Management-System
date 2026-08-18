@@ -4,35 +4,51 @@ import { useAuth } from '../context/AuthContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { EmptyState } from '../components/EmptyState';
 import { Modal } from '../components/Modal';
-import { StatusBadge } from '../components/StatusBadge';
-import { FileCheck, Plus, CheckCircle2, AlertCircle, Printer, Award, ShieldCheck } from 'lucide-react';
+import {
+  FileCheck,
+  Plus,
+  CheckCircle2,
+  AlertCircle,
+  Download,
+  ShieldCheck,
+  Search,
+  Award,
+  Calendar,
+  Sparkles,
+  UserCheck
+} from 'lucide-react';
 
 export function CertificatesPage() {
   const { user } = useAuth();
-  const [certificate, setCertificate] = useState(null);
+  const [certificates, setCertificates] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Public Verification State
+  const [verifyIdInput, setVerifyIdInput] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null);
+
   // Generation Modal
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     student_id: '',
-    certificate_number: `CERT-${Date.now().toString().slice(-6)}`,
-    certificate_type: 'Course Completion'
+    certificate_number: `CERT-2026-${Date.now().toString().slice(-5)}`,
+    certificate_type: 'Course Completion Certificate',
+    course_name: ''
   });
 
-  const loadCertificate = async (studentId) => {
-    if (!studentId) return;
+  const loadCertificates = async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await api.getStudentCertificate(studentId);
-      setCertificate(data);
+      const data = await api.getAllCertificates();
+      setCertificates(Array.isArray(data) ? data : []);
     } catch (err) {
-      setCertificate(null);
+      setError(err.message || 'Failed to load certificates registry.');
     } finally {
       setLoading(false);
     }
@@ -40,40 +56,32 @@ export function CertificatesPage() {
 
   useEffect(() => {
     async function init() {
-      setLoading(true);
-      setError('');
-      try {
-        const role = (user?.role || '').toLowerCase();
-        if (role === 'student' && user?.username) {
-          const prof = await api.getStudent(user.username);
-          if (prof.student?.id) {
-            setSelectedStudentId(prof.student.id);
-            await loadCertificate(prof.student.id);
-          }
-        } else if (role === 'admin' || role === 'faculty') {
-          const stuList = await api.getAllStudents().catch(() => []);
-          const list = Array.isArray(stuList) ? stuList : [];
-          setStudents(list);
-          if (list.length > 0) {
-            setSelectedStudentId(list[0].id);
-            await loadCertificate(list[0].id);
-          } else {
-            setLoading(false);
-          }
-        }
-      } catch (err) {
-        setError(err.message || 'Failed to initialize certificates module.');
-        setLoading(false);
+      await loadCertificates();
+      const role = (user?.role || '').toLowerCase();
+      if (['admin', 'faculty', 'institute', 'institute_admin'].includes(role)) {
+        const stuList = await api.getAllStudents().catch(() => []);
+        setStudents(Array.isArray(stuList) ? stuList : []);
       }
     }
-
     init();
   }, [user]);
 
-  const handleStudentChange = (e) => {
-    const sId = parseInt(e.target.value);
-    setSelectedStudentId(sId);
-    loadCertificate(sId);
+  const handleVerifySubmit = async (e) => {
+    e.preventDefault();
+    if (!verifyIdInput.trim()) return;
+    setVerifying(true);
+    setVerifyResult(null);
+    try {
+      const res = await api.verifyCertificate(verifyIdInput.trim());
+      setVerifyResult(res);
+    } catch (err) {
+      setVerifyResult({
+        valid: false,
+        message: err.message || 'Verification request failed.'
+      });
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const handleGenerateCertificate = async (e) => {
@@ -83,169 +91,201 @@ export function CertificatesPage() {
     try {
       await api.generateCertificate({
         student_id: parseInt(formData.student_id),
-        certificate_number: formData.certificate_number,
-        certificate_type: formData.certificate_type
+        certificate_number: formData.certificate_number.trim(),
+        certificate_type: formData.certificate_type,
+        course_name: formData.course_name.trim() || undefined
       });
-      setSuccess(`Certificate #${formData.certificate_number} successfully issued!`);
+      setSuccess(`Certificate ${formData.certificate_number} issued successfully!`);
       setIsGenerateModalOpen(false);
-      if (selectedStudentId === parseInt(formData.student_id)) {
-        loadCertificate(selectedStudentId);
-      }
+      loadCertificates();
     } catch (err) {
-      setError(err.message || 'Failed to generate certificate.');
+      setError(err.message || 'Failed to issue certificate.');
     }
   };
 
-  const isAdmin = user?.role === 'admin';
-  const isFacultyOrAdmin = user?.role === 'faculty' || user?.role === 'admin';
+  const role = (user?.role || 'student').toLowerCase();
+  const isAdmin = ['admin', 'institute', 'institute_admin'].includes(role);
 
   return (
     <div>
       {error && (
-        <div className="alert alert-danger">
+        <div className="alert alert-danger" style={{ marginBottom: '1rem' }}>
           <AlertCircle size={16} />
           <div>{error}</div>
         </div>
       )}
 
       {success && (
-        <div className="alert alert-success">
+        <div className="alert alert-success" style={{ marginBottom: '1rem' }}>
           <CheckCircle2 size={16} />
           <div>{success}</div>
         </div>
       )}
 
-      <div className="card">
-        <div className="card-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <h2 className="card-title">
-              <FileCheck size={18} />
-              Institutional Credentials & Certificate Issuance
-            </h2>
-            {isFacultyOrAdmin && students.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Student:</span>
-                <select
-                  className="form-control"
-                  style={{ width: 'auto', padding: '3px 8px', fontSize: '12px' }}
-                  value={selectedStudentId || ''}
-                  onChange={handleStudentChange}
-                >
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.registration_id} - {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+      {/* Header Banner */}
+      <div className="card-container" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: '16px', padding: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem' }}>
+          <div>
+            <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: '#ffffff' }}>
+              <FileCheck size={28} color="#60a5fa" />
+              Certificates & Public Verification
+            </h1>
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '4px 0 0' }}>
+              Official 100% course completion certificates with digital seals and instant public authenticity verification.
+            </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {certificate && (
-              <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
-                <Printer size={14} />
-                Print Certificate
-              </button>
-            )}
-            {isAdmin && (
-              <button className="btn btn-primary btn-sm" onClick={() => {
+          {isAdmin && (
+            <button
+              className="btn-primary"
+              onClick={() => {
                 setFormData({
-                  ...formData,
-                  student_id: selectedStudentId || '',
-                  certificate_number: `CERT-${Date.now().toString().slice(-6)}`
+                  student_id: students[0]?.id || '',
+                  certificate_number: `CERT-2026-${Date.now().toString().slice(-5)}`,
+                  certificate_type: 'Course Completion Certificate',
+                  course_name: ''
                 });
                 setIsGenerateModalOpen(true);
-              }}>
-                <Plus size={14} />
-                Issue Certificate
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="card-body">
-          {loading ? (
-            <LoadingSpinner message="Verifying credentials registry..." />
-          ) : !certificate ? (
-            <EmptyState
-              icon={FileCheck}
-              title="No certificate issued"
-              description="No completion certificate has been generated for this student record yet."
-            />
-          ) : (
-            <div style={{
-              background: '#ffffff',
-              border: '8px double #1d63b8',
-              borderRadius: 'var(--radius-lg)',
-              padding: '3rem 2rem',
-              textAlign: 'center',
-              boxShadow: 'var(--shadow-sm)',
-              position: 'relative'
-            }}>
-              <div style={{
-                position: 'absolute',
-                top: '1rem',
-                right: '1.5rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '11px',
-                fontWeight: 600,
-                color: 'var(--primary-blue)',
-                border: '1px solid var(--primary-blue-border)',
-                padding: '3px 8px',
-                borderRadius: '4px'
-              }}>
-                <ShieldCheck size={14} />
-                VERIFIED CREDENTIAL
-              </div>
-
-              <div style={{ width: '48px', height: '48px', background: 'var(--primary-navy)', color: '#fff', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '20px', marginBottom: '1rem' }}>
-                AI
-              </div>
-
-              <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--primary-navy)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
-                AI SMART INSTITUTE
-              </h1>
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '2rem' }}>
-                Certificate of Excellence & Completion
-              </div>
-
-              <p style={{ fontSize: '14px', color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '1rem' }}>
-                This is to officially certify that
-              </p>
-
-              <h2 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--primary-blue)', borderBottom: '2px solid var(--primary-blue-light)', display: 'inline-block', paddingBottom: '4px', marginBottom: '1.25rem' }}>
-                {certificate.student_name || 'Enrolled Scholar'}
-              </h2>
-
-              <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '600px', margin: '0 auto 2rem', lineHeight: 1.6 }}>
-                has successfully fulfilled all institutional, practical, and academic requirements for the curriculum of <strong>{certificate.certificate_type || 'Professional Certification'}</strong> with distinction and exemplary academic merit.
-              </p>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem', marginTop: '2rem', fontSize: '12px', color: 'var(--text-muted)' }}>
-                <div>
-                  <strong>Certificate No:</strong> {certificate.certificate_number}
-                </div>
-                <div>
-                  <strong>Issue Date:</strong> {certificate.issue_date ? new Date(certificate.issue_date).toLocaleDateString() : 'Official'}
-                </div>
-                <div>
-                  <strong>Institutional Status:</strong> Valid & Conferred
-                </div>
-              </div>
-            </div>
+              }}
+              style={{ padding: '10px 18px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Plus size={18} /> Issue Manual Certificate
+            </button>
           )}
         </div>
       </div>
 
-      {/* Generate Certificate Modal */}
+      {/* REQUIREMENT 9: Certificate Verification Tool Card */}
+      <div className="card-container" style={{ marginBottom: '1.5rem', borderLeft: '4px solid #2563eb' }}>
+        <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ShieldCheck size={20} color="#2563eb" /> Verify Certificate Authenticity
+        </h3>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+          Enter a Certificate ID (e.g. <code>CERT-2026-STU001-1</code> or <code>CERT-2026-00001</code>) to verify its validity.
+        </p>
+
+        <form onSubmit={handleVerifySubmit} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: verifyResult ? '1rem' : 0 }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: '280px' }}>
+            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              className="form-control"
+              style={{ paddingLeft: '38px' }}
+              placeholder="Enter Certificate ID..."
+              value={verifyIdInput}
+              onChange={(e) => setVerifyIdInput(e.target.value)}
+              required
+            />
+          </div>
+          <button type="submit" className="btn-primary" disabled={verifying} style={{ padding: '10px 20px' }}>
+            {verifying ? 'Verifying Registry...' : 'Verify Certificate'}
+          </button>
+        </form>
+
+        {/* Verification Result Panel */}
+        {verifyResult && (
+          <div style={{
+            background: verifyResult.valid ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)',
+            border: verifyResult.valid ? '1px solid #10b981' : '1px solid #ef4444',
+            borderRadius: '10px',
+            padding: '1.25rem',
+            marginTop: '1rem'
+          }}>
+            {verifyResult.valid ? (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(16,185,129,0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <ShieldCheck size={28} />
+                </div>
+                <div>
+                  <div className="badge success" style={{ fontSize: '0.85rem', marginBottom: '4px' }}>
+                    AUTHENTIC & VERIFIED
+                  </div>
+                  <h4 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '2px 0 6px', color: '#065f46' }}>
+                    Official Certificate Verified
+                  </h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
+                    <div><strong>Recipient Student:</strong> {verifyResult.certificate.student_name} ({verifyResult.certificate.registration_id})</div>
+                    <div><strong>Course Title:</strong> {verifyResult.certificate.course_name}</div>
+                    <div><strong>Certificate ID:</strong> {verifyResult.certificate.certificate_number}</div>
+                    <div><strong>Issue Date:</strong> {verifyResult.certificate.issue_date}</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: '#b91c1c' }}>
+                <AlertCircle size={28} />
+                <div>
+                  <h4 style={{ margin: 0, fontWeight: 700 }}>Certificate Not Found</h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.9rem' }}>{verifyResult.message}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Certificates List Table */}
+      <div className="card-container">
+        <h3 style={{ fontSize: '1.15rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Award size={18} color="var(--primary-blue)" /> Conferred Certificates Registry
+        </h3>
+
+        {loading ? (
+          <LoadingSpinner message="Fetching certificates registry..." />
+        ) : certificates.length === 0 ? (
+          <EmptyState
+            icon={FileCheck}
+            title="No certificates generated"
+            description="Certificates will automatically appear here when students reach 100% course completion."
+          />
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Certificate ID</th>
+                <th>Student Name</th>
+                <th>Course Name</th>
+                <th>Certificate Type</th>
+                <th>Issue Date</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {certificates.map((c) => (
+                <tr key={c.id}>
+                  <td style={{ fontWeight: 700 }}>{c.certificate_number}</td>
+                  <td style={{ fontWeight: 600 }}>{c.student_name}</td>
+                  <td>{c.course_name || 'Full Program'}</td>
+                  <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{c.certificate_type}</td>
+                  <td style={{ fontSize: '0.85rem' }}>{c.issue_date || 'Instant'}</td>
+                  <td>
+                    <span className="badge success">{c.status || 'Issued'}</span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <a
+                      href={api.getCertificateDownloadUrl(c.certificate_number)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-primary"
+                      style={{ padding: '6px 12px', fontSize: '0.82rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Download size={14} /> Download PDF
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* ADMIN MANUAL ISSUE CERTIFICATE MODAL */}
       <Modal
         isOpen={isGenerateModalOpen}
         onClose={() => setIsGenerateModalOpen(false)}
-        title="Issue Official Academic Certificate"
-        maxWidth="480px"
+        title="Issue Certificate Manually"
+        maxWidth="500px"
       >
         <form onSubmit={handleGenerateCertificate}>
           <div className="form-group">
@@ -266,7 +306,19 @@ export function CertificatesPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Certificate Serial Number <span className="required">*</span></label>
+            <label className="form-label">Course Name <span className="required">*</span></label>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="e.g. Full Stack Web Development"
+              value={formData.course_name}
+              onChange={(e) => setFormData({ ...formData, course_name: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Unique Certificate ID <span className="required">*</span></label>
             <input
               type="text"
               className="form-control"
@@ -277,25 +329,21 @@ export function CertificatesPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Certification Type / Honor</label>
-            <select
+            <label className="form-label">Certificate Type</label>
+            <input
+              type="text"
               className="form-control"
               value={formData.certificate_type}
               onChange={(e) => setFormData({ ...formData, certificate_type: e.target.value })}
-            >
-              <option value="Course Completion">Course Completion Certificate</option>
-              <option value="Diploma in Artificial Intelligence">Diploma in Artificial Intelligence</option>
-              <option value="Advanced Computer Science Specialist">Advanced Computer Science Specialist</option>
-              <option value="Academic Excellence Merit Award">Academic Excellence Merit Award</option>
-            </select>
+            />
           </div>
 
-          <div className="modal-footer" style={{ margin: '1rem -1.25rem -1.25rem' }}>
-            <button type="button" className="btn btn-secondary" onClick={() => setIsGenerateModalOpen(false)}>
+          <div className="modal-footer" style={{ margin: '1.25rem -1.25rem -1.25rem' }}>
+            <button type="button" className="btn-secondary" onClick={() => setIsGenerateModalOpen(false)}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              Issue Certificate
+            <button type="submit" className="btn-primary">
+              Issue Official Certificate
             </button>
           </div>
         </form>
@@ -303,3 +351,4 @@ export function CertificatesPage() {
     </div>
   );
 }
+export default CertificatesPage;

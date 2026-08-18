@@ -40,20 +40,23 @@ export const api = {
   // Auth
   login: (credentials) => apiRequest('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
   changePassword: (data) => apiRequest('/auth/change-password', { method: 'POST', body: JSON.stringify(data) }),
+  selfRegisterStudent: (data) => apiRequest('/auth/register-student', { method: 'POST', body: JSON.stringify(data) }),
 
-  // Institutes (Admin)
+  // Institutes & Admin Dashboard Stats
   registerInstitute: (data) => apiRequest('/institutes/register', { method: 'POST', body: JSON.stringify(data) }),
   getInstituteProfile: () => apiRequest('/institutes/profile'),
   updateInstituteProfile: (data) => apiRequest('/institutes/profile', { method: 'PUT', body: JSON.stringify(data) }),
+  getInstitutePaymentInfo: (instCode) => apiRequest(`/institutes/payment-info/${instCode}`),
   getInstituteDashboardStats: () => apiRequest('/institutes/dashboard-stats'),
-  sendFeeNotification: (data) => apiRequest('/institutes/send-fee-notification', { method: 'POST', body: JSON.stringify(data) }),
-  getNotifications: () => apiRequest('/institutes/notifications'),
 
   // Students
   registerStudent: (data) => apiRequest('/students/register', { method: 'POST', body: JSON.stringify(data) }),
   getStudent: (regId) => apiRequest(`/students/${regId}`),
   updateStudent: (regId, data) => apiRequest(`/students/${regId}`, { method: 'PUT', body: JSON.stringify(data) }),
   getAllStudents: () => apiRequest('/students/'),
+  getPendingApprovals: () => apiRequest('/students/pending-approvals/list'),
+  approveStudent: (studentId, assignedRegistrationId) => apiRequest(`/students/${studentId}/approve`, { method: 'POST', body: JSON.stringify({ assigned_registration_id: assignedRegistrationId }) }),
+  rejectStudent: (studentId, reason) => apiRequest(`/students/${studentId}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
 
   // Faculty
   registerFaculty: (data) => apiRequest('/faculty/register', { method: 'POST', body: JSON.stringify(data) }),
@@ -61,11 +64,17 @@ export const api = {
   updateFaculty: (empId, data) => apiRequest(`/faculty/${empId}`, { method: 'PUT', body: JSON.stringify(data) }),
   getAllFaculty: () => apiRequest('/admin/faculty'),
 
-  // Courses
+  // Courses & Course Modules
+  getPublicCourses: (instCode) => apiRequest(`/courses/public${instCode ? `?institute_code=${encodeURIComponent(instCode)}` : ''}`),
   getAllCourses: () => apiRequest('/courses/'),
   getCourse: (courseCode) => apiRequest(`/courses/${courseCode}`),
   createCourse: (data) => apiRequest('/courses/', { method: 'POST', body: JSON.stringify(data) }),
   updateCourse: (courseCode, data) => apiRequest(`/courses/${courseCode}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCourse: (courseId) => apiRequest(`/courses/${courseId}`, { method: 'DELETE' }),
+  toggleCourseStatus: (courseId) => apiRequest(`/courses/${courseId}/toggle-status`, { method: 'PATCH' }),
+  addCourseModule: (courseId, data) => apiRequest(`/courses/${courseId}/modules`, { method: 'POST', body: JSON.stringify(data) }),
+  getCourseModules: (courseId) => apiRequest(`/courses/${courseId}/modules`),
+  deleteCourseModule: (moduleId) => apiRequest(`/courses/modules/${moduleId}`, { method: 'DELETE' }),
 
   // Batches
   getAllBatches: () => apiRequest('/batches/'),
@@ -75,35 +84,45 @@ export const api = {
 
   // Attendance
   markAttendance: (data) => apiRequest('/attendance/', { method: 'POST', body: JSON.stringify(data) }),
-  getStudentAttendance: (studentId) => apiRequest(`/attendance/student/${studentId}`),
-  getAttendancePercentage: (studentId) => apiRequest(`/attendance/percentage/${studentId}`),
+  updateAttendance: (attendanceId, data) => apiRequest(`/attendance/${attendanceId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getStudentAttendance: (studentId, course) => apiRequest(`/attendance/student/${studentId}${course ? `?course=${encodeURIComponent(course)}` : ''}`),
+  getAttendancePercentage: (studentId, course) => apiRequest(`/attendance/percentage/${studentId}${course ? `?course=${encodeURIComponent(course)}` : ''}`),
+  getCourseAttendance: (courseName) => apiRequest(`/attendance/course/${encodeURIComponent(courseName)}`),
 
   // Fees
   createFeePayment: (data) => apiRequest('/fees/', { method: 'POST', body: JSON.stringify(data) }),
   getStudentFees: (studentId) => apiRequest(`/fees/${studentId}`),
   getFeeSummary: (studentId) => apiRequest(`/fees/summary/${studentId}`),
 
-  // Assessments
+  // Assessments & Notices
   createAssessment: (data) => apiRequest('/assessments/', { method: 'POST', body: JSON.stringify(data) }),
   getStudentAssessments: (studentId) => apiRequest(`/assessments/${studentId}`),
-  getStudentResult: (studentId) => apiRequest(`/assessments/result/${studentId}`),
-
-  // Notices
   getNotices: () => apiRequest('/notices/'),
   createNotice: (data) => apiRequest('/notices/', { method: 'POST', body: JSON.stringify(data) }),
 
-  // Reports
-  getStudentReport: (studentId) => apiRequest(`/reports/student/${studentId}`),
-
-  // Certificates
+  // Certificates & Public Verification
+  getAllCertificates: () => apiRequest('/certificates/'),
   generateCertificate: (data) => apiRequest('/certificates/', { method: 'POST', body: JSON.stringify(data) }),
   getStudentCertificate: (studentId) => apiRequest(`/certificates/${studentId}`),
+  claimCertificate: (applicationId) => apiRequest(`/certificates/claim/${applicationId}`, { method: 'POST' }),
+  verifyCertificate: (certificateNumber) => apiRequest(`/certificates/verify/${encodeURIComponent(certificateNumber)}`),
+  getCertificateDownloadUrl: (certId) => `${API_BASE_URL}/certificates/download/${certId}`,
 
-  // Course Applications
+  // Course Applications & Module Progress
   applyCourse: (courseId) => apiRequest('/course-applications/', { method: 'POST', body: JSON.stringify({ course_id: courseId }) }),
+  applyCourseDetailed: (data) => apiRequest('/course-applications/', { method: 'POST', body: JSON.stringify(data) }),
   getMyApplications: () => apiRequest('/course-applications/my'),
-  getAllApplications: () => apiRequest('/course-applications/all'),
+  getEnrollmentDetails: (appId) => apiRequest(`/course-applications/${appId}/details`),
+  toggleModuleCompletion: (appId, moduleId) => apiRequest(`/course-applications/${appId}/modules/${moduleId}/toggle`, { method: 'POST' }),
+  getAllApplications: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/course-applications/all${query ? `?${query}` : ''}`);
+  },
+  updateCourseCompletion: (appId, completionStatus, remarks = '') => apiRequest(`/course-applications/${appId}/completion`, { method: 'PATCH', body: JSON.stringify({ completion_status: completionStatus, remarks }) }),
+  updatePaymentStatus: (appId, paymentStatus) => apiRequest(`/course-applications/${appId}/payment-status`, { method: 'PATCH', body: JSON.stringify({ payment_status: paymentStatus }) }),
 
-  // AI Chat Assistant
+  // Reports & AI Assistant
+  getStudentReport: (studentId) => apiRequest(`/reports/student/${studentId}`),
   sendChatMessage: (message) => apiRequest('/ai/chat', { method: 'POST', body: JSON.stringify({ message }) })
 };
+

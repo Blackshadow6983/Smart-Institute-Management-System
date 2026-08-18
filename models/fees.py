@@ -8,6 +8,12 @@ class Fee(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
+    institute_code = Column(
+        String(50),
+        nullable=True,
+        index=True
+    )
+
     student_id = Column(
         Integer,
         nullable=False

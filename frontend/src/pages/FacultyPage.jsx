@@ -302,6 +302,22 @@ export function FacultyPage() {
             </div>
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Login Password for Faculty Account <span className="required">*</span></label>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Set login password (default: faculty123)"
+              value={formData.password || 'faculty123'}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              required
+            />
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              Faculty will use Employee ID and this password to log in.
+            </span>
+          </div>
+
+
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Department</label>

@@ -42,16 +42,17 @@ def create_batch(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-
     role = current_user["role"].lower()
-
-    if role not in ["admin", "faculty"]:
+    if role not in ["admin", "institute", "institute_admin"]:
         raise HTTPException(
             status_code=403,
-            detail="Only admin or faculty can create batches"
+            detail="Only Institute Admins can create batches"
         )
 
+    inst_code = current_user.get("institute_code")
+
     batch = Batch(
+        institute_code=inst_code,
         name=data.name,
         course=data.course,
         timing=data.timing,
@@ -69,7 +70,6 @@ def create_batch(
 
 # =========================================================
 # GET ALL BATCHES
-# ALL AUTHENTICATED USERS
 # =========================================================
 
 @router.get("/")
@@ -77,13 +77,23 @@ def get_all_batches(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    batches = db.query(Batch).all()
+    role = current_user["role"].lower()
+    if role == "faculty":
+        raise HTTPException(
+            status_code=403,
+            detail="Faculty access is restricted to student attendance only."
+        )
+
+    inst_code = current_user.get("institute_code")
+    query = db.query(Batch)
+    if inst_code:
+        query = query.filter(Batch.institute_code == inst_code)
+    batches = query.all()
     return batches
 
 
 # =========================================================
 # GET BATCH
-# ALL AUTHENTICATED USERS
 # =========================================================
 
 @router.get("/{batch_id}")
@@ -92,6 +102,12 @@ def get_batch(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    role = current_user["role"].lower()
+    if role == "faculty":
+        raise HTTPException(
+            status_code=403,
+            detail="Faculty access is restricted to student attendance only."
+        )
 
     batch = (
         db.query(Batch)
@@ -112,7 +128,6 @@ def get_batch(
 
 # =========================================================
 # UPDATE BATCH
-# ADMIN + FACULTY
 # =========================================================
 
 @router.put("/{batch_id}")
@@ -122,13 +137,12 @@ def update_batch(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-
     role = current_user["role"].lower()
 
-    if role not in ["admin", "faculty"]:
+    if role not in ["admin", "institute", "institute_admin"]:
         raise HTTPException(
             status_code=403,
-            detail="Only admin or faculty can update batches"
+            detail="Only Institute Admins can update batches"
         )
 
     batch = (
@@ -161,4 +175,4 @@ def update_batch(
     return {
         "message": "Batch updated successfully",
         "batch": batch
-    }
+    }

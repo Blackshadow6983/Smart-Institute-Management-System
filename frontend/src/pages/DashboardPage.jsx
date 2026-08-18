@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
-import { StatusBadge } from '../components/StatusBadge';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { Modal } from '../components/Modal';
 import {
@@ -10,34 +9,49 @@ import {
   Users,
   GraduationCap,
   BookOpen,
-  Layers,
   CalendarCheck,
   CreditCard,
   Award,
   Bell,
   ArrowRight,
-  TrendingUp,
   UserPlus,
   Send,
   Mail,
   CheckCircle2,
   AlertCircle,
   Clock,
-  ShieldCheck
+  ShieldCheck,
+  Layers,
+  Download,
+  Sparkles,
+  ChevronRight,
+  FileText
 } from 'lucide-react';
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [instituteData, setInstituteData] = useState(null);
-  const [studentData, setStudentData] = useState({
-    profile: null,
-    attendanceRate: null,
-    feeSummary: null,
-    notifications: []
+  
+  // Admin Data
+  const [adminStats, setAdminStats] = useState({
+    totalStudents: 0,
+    totalCourses: 0,
+    activeCourses: 0,
+    completedCourses: 0,
+    totalRevenue: 0,
+    onlineStudents: 0,
+    offlineStudents: 0,
+    recentApplications: []
   });
 
-  // Modal for quick fee reminder
+  // Student Data
+  const [studentData, setStudentData] = useState({
+    profile: null,
+    enrolledCourses: [],
+    paymentHistory: []
+  });
+
   const [selectedStudentForFee, setSelectedStudentForFee] = useState(null);
   const [feeCustomNote, setFeeCustomNote] = useState('');
   const [feeActionLoading, setFeeActionLoading] = useState(false);
@@ -48,35 +62,61 @@ export function DashboardPage() {
     try {
       const role = (user?.role || '').toLowerCase();
 
-      if (role === 'admin' || role === 'institute' || role === 'institute_admin') {
-        const data = await api.getInstituteDashboardStats();
-        setInstituteData(data);
+      if (['admin', 'institute', 'institute_admin'].includes(role)) {
+        // Fetch all data for admin
+        const [instStats, allStudents, allCourses, allApps, pendingApps] = await Promise.allSettled([
+          api.getInstituteDashboardStats(),
+          api.getAllStudents(),
+          api.getAllCourses(),
+          api.getAllApplications(),
+          api.getPendingApprovals()
+        ]);
+
+        const students = allStudents.status === 'fulfilled' ? allStudents.value : [];
+        const courses = allCourses.status === 'fulfilled' ? allCourses.value : [];
+        const apps = allApps.status === 'fulfilled' ? allApps.value : [];
+        const pending = pendingApps.status === 'fulfilled' ? pendingApps.value : [];
+
+        const totalStud = students.length;
+        const totalCour = courses.length;
+        const activeCour = courses.filter(c => c.is_active !== false).length;
+        const completedApps = apps.filter(a => (a.completion_status || 0) >= 100).length;
+        const totalRev = apps.reduce((sum, a) => sum + (a.amount_paid || 0), 0);
+        const onlineCount = apps.filter(a => (a.learning_mode || '').toLowerCase() === 'online').length;
+        const offlineCount = apps.filter(a => (a.learning_mode || '').toLowerCase() === 'offline').length;
+
+        setAdminStats({
+          totalStudents: totalStud,
+          totalCourses: totalCour,
+          activeCourses: activeCour,
+          completedCourses: completedApps,
+          totalRevenue: totalRev,
+          onlineStudents: onlineCount,
+          offlineStudents: offlineCount,
+          pendingApprovalsCount: pending.length,
+          recentApplications: apps.slice(0, 8)
+        });
       } else if (role === 'student') {
         const username = user?.username;
-        const [profileRes, notifs] = await Promise.allSettled([
+        const [profileRes, myAppsRes] = await Promise.allSettled([
           api.getStudent(username),
-          api.getNotifications()
+          api.getMyApplications()
         ]);
 
         const profile = profileRes.status === 'fulfilled' ? profileRes.value.student : null;
-        let feeSum = null;
-        let attRate = null;
-
-        if (profile?.id) {
-          try {
-            feeSum = await api.getFeeSummary(profile.id);
-            const att = await api.getAttendancePercentage(profile.id);
-            attRate = att?.attendance_percentage;
-          } catch (e) {
-            // Summary fallback
-          }
-        }
+        const apps = myAppsRes.status === 'fulfilled' ? myAppsRes.value : [];
 
         setStudentData({
           profile,
-          attendanceRate: attRate,
-          feeSummary: feeSum,
-          notifications: notifs.status === 'fulfilled' && Array.isArray(notifs.value) ? notifs.value : []
+          enrolledCourses: apps,
+          paymentHistory: apps.map(a => ({
+            id: a.id,
+            course: a.course,
+            amount: a.amount_paid,
+            method: a.payment_method,
+            status: a.payment_status,
+            date: a.application_date
+          }))
         });
       }
     } catch (err) {
@@ -116,446 +156,406 @@ export function DashboardPage() {
   };
 
   if (loading) {
-    return <LoadingSpinner message="Connecting to institutional environment..." />;
+    return <LoadingSpinner message="Connecting to academic management environment..." />;
   }
 
   const role = (user?.role || 'student').toLowerCase();
-  const isAdmin = role === 'admin' || role === 'institute' || role === 'institute_admin';
+  const isAdmin = ['admin', 'institute', 'institute_admin'].includes(role);
 
   return (
     <div>
       {/* ========================================================================= */}
-      {/* INSTITUTE ADMIN DASHBOARD */}
+      {/* ADMIN DASHBOARD */}
       {/* ========================================================================= */}
       {isAdmin ? (
         <>
-          {/* Institute Admin Banner */}
-          <div className="card" style={{ marginBottom: '1.25rem', background: 'linear-gradient(to right, #ffffff, #f8fafc)', borderLeft: '4px solid var(--primary-blue, #2563eb)' }}>
-            <div className="card-body" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem' }}>
+          {/* Admin Banner */}
+          <div className="card" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: '16px' }}>
+            <div className="card-body" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem', padding: '1.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, var(--primary-navy, #0f172a), var(--primary-blue, #2563eb))',
+                  width: '54px',
+                  height: '54px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: '#fff',
-                  boxShadow: '0 4px 12px rgba(37,99,235,0.2)'
+                  boxShadow: '0 4px 12px rgba(37,99,235,0.4)'
                 }}>
-                  <Building2 size={26} />
+                  <Building2 size={28} />
                 </div>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <h1 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary-navy, #0f172a)', margin: 0 }}>
-                      {instituteData?.institute?.name || user?.institute_name || 'Institute Management'}
+                    <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                      Institute Control Center
                     </h1>
                     <span style={{
-                      background: 'var(--primary-navy, #0f172a)',
-                      color: '#ffffff',
+                      background: 'rgba(37,99,235,0.3)',
+                      color: '#60a5fa',
+                      border: '1px solid rgba(96,165,250,0.3)',
                       padding: '2px 8px',
                       borderRadius: '4px',
-                      fontSize: '12px',
+                      fontSize: '11px',
                       fontWeight: 700,
                       letterSpacing: '0.5px'
                     }}>
-                      {instituteData?.institute?.institute_code || user?.institute_code || 'ITE-001'}
+                      {user?.institute_code || 'DEFAULT'}
                     </span>
                   </div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    Multi-Tenant Administration • {instituteData?.institute?.email || 'admin@institute.edu'} • {instituteData?.institute?.contact_number || 'Official Contact Active'}
+                  <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '4px' }}>
+                    System Administration • Role-Based Control • Live Enrollment Analytics
                   </div>
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-                <Link to="/students" className="btn btn-primary btn-sm">
-                  <UserPlus size={15} />
-                  <span>Register Student</span>
-                </Link>
-                <Link to="/courses" className="btn btn-secondary btn-sm">
+                <Link to="/courses" className="btn btn-primary btn-sm" style={{ padding: '8px 14px' }}>
                   <BookOpen size={15} />
-                  <span>Add Course</span>
+                  <span>Manage Courses</span>
                 </Link>
-                <Link to="/fees" className="btn btn-secondary btn-sm">
-                  <CreditCard size={15} />
-                  <span>Fee Ledger</span>
+                <Link to="/students" className="btn btn-secondary btn-sm" style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.1)', color: '#ffffff', border: 'none' }}>
+                  <Users size={15} />
+                  <span>Manage Students</span>
+                </Link>
+                <Link to="/applications" className="btn btn-secondary btn-sm" style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.1)', color: '#ffffff', border: 'none' }}>
+                  <FileText size={15} />
+                  <span>Enrollments</span>
                 </Link>
               </div>
             </div>
           </div>
 
-          {/* Institute KPIs */}
-          <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', marginBottom: '1.25rem' }}>
+          {/* REQUIREMENT 2: Admin Dashboard Stats Cards */}
+          <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginBottom: '1.5rem', gap: '1rem' }}>
             <div className="kpi-card">
               <div className="kpi-icon-wrap">
-                <Users size={20} />
+                <Users size={22} />
               </div>
               <div className="kpi-info">
-                <div className="kpi-label">Registered Students</div>
-                <div className="kpi-value">{instituteData?.stats?.total_students || 0}</div>
-                <div className="kpi-subtext">Under {instituteData?.institute?.institute_code || 'Institute'}</div>
+                <div className="kpi-label">Total Students</div>
+                <div className="kpi-value">{adminStats.totalStudents}</div>
+                <div className="kpi-subtext">Registered learners</div>
               </div>
             </div>
 
             <div className="kpi-card">
               <div className="kpi-icon-wrap">
-                <BookOpen size={20} />
+                <BookOpen size={22} />
               </div>
               <div className="kpi-info">
-                <div className="kpi-label">Active Courses</div>
-                <div className="kpi-value">{instituteData?.stats?.total_courses || 0}</div>
-                <div className="kpi-subtext">Curriculum & durations</div>
+                <div className="kpi-label">Total Courses</div>
+                <div className="kpi-value">{adminStats.totalCourses}</div>
+                <div className="kpi-subtext">{adminStats.activeCourses} Active Courses</div>
               </div>
             </div>
 
             <div className="kpi-card">
               <div className="kpi-icon-wrap success">
-                <CreditCard size={20} />
+                <CheckCircle2 size={22} />
               </div>
               <div className="kpi-info">
-                <div className="kpi-label">Fees Collected</div>
-                <div className="kpi-value">₹{(instituteData?.stats?.total_fees_collected || 0).toLocaleString()}</div>
-                <div className="kpi-subtext">Received into accounts</div>
-              </div>
-            </div>
-
-            <div className="kpi-card">
-              <div className="kpi-icon-wrap warning">
-                <Clock size={20} />
-              </div>
-              <div className="kpi-info">
-                <div className="kpi-label">Pending Student Fees</div>
-                <div className="kpi-value" style={{ color: '#dc2626' }}>₹{(instituteData?.stats?.pending_fees || 0).toLocaleString()}</div>
-                <div className="kpi-subtext">Pending fee balance</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Student Roster & Notification Activity */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.25rem' }}>
-            
-            {/* Institute Students Roster */}
-            <div className="card" style={{ margin: 0 }}>
-              <div className="card-header">
-                <h2 className="card-title">
-                  <Users size={16} />
-                  Enrolled Students ({instituteData?.institute?.institute_code})
-                </h2>
-                <Link to="/students" className="btn btn-secondary btn-sm" style={{ padding: '2px 8px', fontSize: '11.5px' }}>
-                  All Students <ArrowRight size={12} />
-                </Link>
-              </div>
-              <div className="card-body" style={{ padding: 0 }}>
-                {(!instituteData?.recent_students || instituteData.recent_students.length === 0) ? (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    No students registered under this institute yet. Click 'Register Student' to enroll.
-                  </div>
-                ) : (
-                  <div className="table-container">
-                    <table className="table-custom">
-                      <thead>
-                        <tr>
-                          <th>Enrollment ID</th>
-                          <th>Student Details</th>
-                          <th>Course & Duration</th>
-                          <th>Fees</th>
-                          <th style={{ textAlign: 'right' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {instituteData.recent_students.map((s) => (
-                          <tr key={s.id}>
-                            <td style={{ fontWeight: 700, color: 'var(--primary-navy)' }}>
-                              {s.registration_id}
-                            </td>
-                            <td>
-                              <div style={{ fontWeight: 600 }}>{s.name}</div>
-                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{s.email}</div>
-                            </td>
-                            <td>
-                              <div>{s.course || 'Unassigned'}</div>
-                              <div style={{ fontSize: '11px', color: 'var(--primary-blue)', fontWeight: 600 }}>
-                                {s.course_duration || '1 Year'}
-                              </div>
-                            </td>
-                            <td>
-                              <span style={{ fontWeight: 600 }}>₹{(s.course_fee || 0).toLocaleString()}</span>
-                            </td>
-                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                              <button
-                                className="btn btn-secondary btn-sm"
-                                style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--primary-blue)' }}
-                                onClick={() => setSelectedStudentForFee(s)}
-                                title="Send Fee Notification / Reminder to Student & Parent Gmail"
-                              >
-                                <Mail size={12} />
-                                <span>Fee Notice</span>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Email & Notification Activity Feed */}
-            <div className="card" style={{ margin: 0 }}>
-              <div className="card-header">
-                <h2 className="card-title">
-                  <Mail size={16} />
-                  Gmail & Notification Dispatch Log
-                </h2>
-              </div>
-              <div className="card-body" style={{ padding: 0 }}>
-                {(!instituteData?.recent_notifications || instituteData.recent_notifications.length === 0) ? (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    No emails dispatched yet. Notifications will appear when students are registered or fee notices are sent.
-                  </div>
-                ) : (
-                  <div>
-                    {instituteData.recent_notifications.map((n) => (
-                      <div key={n.id} style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                        <div style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          background: n.notification_type === 'welcome_credentials' ? 'rgba(37,99,235,0.1)' : 'rgba(234,179,8,0.1)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: n.notification_type === 'welcome_credentials' ? 'var(--primary-blue)' : '#ca8a04',
-                          flexShrink: 0,
-                          marginTop: '2px'
-                        }}>
-                          {n.notification_type === 'welcome_credentials' ? <GraduationCap size={15} /> : <CreditCard size={15} />}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 600, fontSize: '12.5px', color: 'var(--primary-navy)' }}>{n.subject}</span>
-                            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                              {n.created_at ? new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now'}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                            Sent to <strong>{n.recipient_email}</strong> ({n.recipient_type}) • <span style={{ color: '#10b981', fontWeight: 600 }}>{n.status}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-          </div>
-        </>
-      ) : (
-        /* ========================================================================= */
-        /* STUDENT PORTAL DASHBOARD */
-        /* ========================================================================= */
-        <>
-          {/* Student Welcome Banner */}
-          <div className="card" style={{ marginBottom: '1.25rem', background: 'linear-gradient(to right, #ffffff, #f8fafc)', borderLeft: '4px solid var(--primary-blue, #2563eb)' }}>
-            <div className="card-body" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{
-                    background: 'var(--primary-navy, #0f172a)',
-                    color: '#ffffff',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    letterSpacing: '0.4px'
-                  }}>
-                    {studentData.profile?.institute_code || user?.institute_code || 'INSTITUTE'}
-                  </span>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                    {studentData.profile?.institute_name || user?.institute_name || 'AI Smart Institute'}
-                  </span>
-                </div>
-                <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary-navy)', margin: '0 0 4px' }}>
-                  Welcome, {studentData.profile?.name || user?.username}
-                </h2>
-                <div style={{ display: 'flex', gap: '1.25rem', fontSize: '12.5px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-                  <div><strong>Enrollment ID:</strong> {studentData.profile?.registration_id}</div>
-                  <div><strong>Course:</strong> {studentData.profile?.course || 'General Program'}</div>
-                  <div><strong>Duration:</strong> {studentData.profile?.course_duration || '1 Year'}</div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <Link to="/profile" className="btn btn-secondary btn-sm">
-                  My Profile
-                </Link>
-                <Link to="/fees" className="btn btn-primary btn-sm">
-                  View Fees
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Student KPIs */}
-          <div className="kpi-grid">
-            <div className="kpi-card">
-              <div className="kpi-icon-wrap">
-                <BookOpen size={20} />
-              </div>
-              <div className="kpi-info">
-                <div className="kpi-label">Enrolled Program</div>
-                <div className="kpi-value" style={{ fontSize: '16px' }}>{studentData.profile?.course || 'Enrolled'}</div>
-                <div className="kpi-subtext">Duration: {studentData.profile?.course_duration || 'Standard'}</div>
+                <div className="kpi-label">Completed Courses</div>
+                <div className="kpi-value" style={{ color: '#10b981' }}>{adminStats.completedCourses}</div>
+                <div className="kpi-subtext">100% finished</div>
               </div>
             </div>
 
             <div className="kpi-card">
               <div className="kpi-icon-wrap success">
-                <CalendarCheck size={20} />
+                <CreditCard size={22} />
               </div>
               <div className="kpi-info">
-                <div className="kpi-label">Attendance Score</div>
-                <div className="kpi-value">
-                  {studentData.attendanceRate !== null ? `${studentData.attendanceRate}%` : 'N/A'}
-                </div>
-                <div className="kpi-subtext">Verified attendance</div>
-              </div>
-            </div>
-
-            <div className="kpi-card">
-              <div className="kpi-icon-wrap warning">
-                <CreditCard size={20} />
-              </div>
-              <div className="kpi-info">
-                <div className="kpi-label">Balance Pending Fees</div>
-                <div className="kpi-value" style={{ color: (studentData.feeSummary?.pending_fee || 0) > 0 ? '#dc2626' : '#10b981' }}>
-                  ₹{(studentData.feeSummary?.pending_fee || 0).toLocaleString()}
-                </div>
-                <div className="kpi-subtext">
-                  Paid: ₹{(studentData.feeSummary?.total_paid || 0).toLocaleString()} / Total: ₹{(studentData.feeSummary?.course_fee || studentData.profile?.course_fee || 0).toLocaleString()}
-                </div>
+                <div className="kpi-label">Total Revenue</div>
+                <div className="kpi-value" style={{ color: '#059669' }}>₹{adminStats.totalRevenue.toLocaleString()}</div>
+                <div className="kpi-subtext">Verified fees paid</div>
               </div>
             </div>
 
             <div className="kpi-card">
               <div className="kpi-icon-wrap info">
-                <Bell size={20} />
+                <Layers size={22} />
               </div>
               <div className="kpi-info">
-                <div className="kpi-label">Institute Notices</div>
-                <div className="kpi-value">{studentData.notifications.length}</div>
-                <div className="kpi-subtext">Official updates</div>
+                <div className="kpi-label">Online Students</div>
+                <div className="kpi-value" style={{ color: '#2563eb' }}>{adminStats.onlineStudents}</div>
+                <div className="kpi-subtext">Remote learning mode</div>
+              </div>
+            </div>
+
+            <div className="kpi-card">
+              <div className="kpi-icon-wrap warning">
+                <Building2 size={22} />
+              </div>
+              <div className="kpi-info">
+                <div className="kpi-label">Offline Students</div>
+                <div className="kpi-value" style={{ color: '#d97706' }}>{adminStats.offlineStudents}</div>
+                <div className="kpi-subtext">On-campus learning</div>
               </div>
             </div>
           </div>
 
-          {/* Quick Academic Navigation */}
-          <div className="card" style={{ marginTop: '1.25rem' }}>
-            <div className="card-header">
-              <h2 className="card-title">
-                <TrendingUp size={16} />
-                Student Academic Quick Links
+          {/* Recent Enrollments Table */}
+          <div className="card-container">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileText size={18} color="var(--primary-blue)" /> Recent Course Enrollments
+              </h3>
+              <Link to="/applications" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                Manage All Enrollments <ChevronRight size={14} />
+              </Link>
+            </div>
+
+            {adminStats.recentApplications.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                No student course enrollments found yet.
+              </div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Student Name</th>
+                    <th>Enrollment ID</th>
+                    <th>Course</th>
+                    <th>Mode</th>
+                    <th>Fee Paid</th>
+                    <th>Payment Status</th>
+                    <th>Progress</th>
+                    <th>Completion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminStats.recentApplications.map(app => (
+                    <tr key={app.id}>
+                      <td style={{ fontWeight: 700 }}>{app.student_name}</td>
+                      <td>
+                        <span className="badge" style={{ background: 'var(--bg-subtle)' }}>
+                          {app.registration_id}
+                        </span>
+                      </td>
+                      <td>{app.course}</td>
+                      <td>
+                        <span className={`badge ${app.learning_mode === 'Online' ? 'info' : 'warning'}`}>
+                          {app.learning_mode}
+                        </span>
+                      </td>
+                      <td style={{ fontWeight: 700, color: '#10b981' }}>₹{app.amount_paid?.toLocaleString()}</td>
+                      <td>
+                        <span className="badge success">{app.payment_status}</span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '110px' }}>
+                          <div className="progress-bar-container" style={{ flex: 1, height: '6px' }}>
+                            <div className="progress-bar-fill" style={{ width: `${app.completion_status || 0}%` }}></div>
+                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: 700 }}>{app.completion_status || 0}%</span>
+                        </div>
+                      </td>
+                      <td>
+                        {(app.completion_status || 0) >= 100 ? (
+                          <span className="badge success">Completed</span>
+                        ) : (
+                          <span className="badge warning">In Progress</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
+      ) : (
+        /* ========================================================================= */
+        /* REQUIREMENT 5: STUDENT DASHBOARD */
+        /* ========================================================================= */
+        <>
+          {/* Student Welcome Banner */}
+          <div className="card" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: '16px', padding: '1.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <span className="badge" style={{ background: 'rgba(37,99,235,0.3)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)' }}>
+                    STUDENT PORTAL
+                  </span>
+                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>
+                    {studentData.profile?.registration_id}
+                  </span>
+                </div>
+                <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                  Welcome back, {studentData.profile?.name || user?.username}!
+                </h1>
+                <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: '4px 0 0' }}>
+                  {studentData.profile?.email} • {studentData.profile?.mobile}
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.6rem' }}>
+                <Link to="/courses" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '10px 18px' }}>
+                  <BookOpen size={16} /> Browse Available Courses
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Enrolled Courses Section */}
+          <div style={{ marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ fontSize: '1.3rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BookOpen size={20} color="var(--primary-blue)" /> My Enrolled Courses
               </h2>
+              <span className="stat-badge" style={{ background: 'var(--bg-subtle)', padding: '4px 12px', borderRadius: '6px', fontWeight: 700 }}>
+                {studentData.enrolledCourses.length} Enrolled
+              </span>
             </div>
-            <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-              <Link to="/attendance" className="btn btn-secondary" style={{ justifyContent: 'flex-start', padding: '0.75rem' }}>
-                <CalendarCheck size={16} color="var(--primary-blue)" />
-                <span>Attendance</span>
-              </Link>
-              <Link to="/fees" className="btn btn-secondary" style={{ justifyContent: 'flex-start', padding: '0.75rem' }}>
-                <CreditCard size={16} color="var(--primary-blue)" />
-                <span>Fee Statements</span>
-              </Link>
-              <Link to="/marks" className="btn btn-secondary" style={{ justifyContent: 'flex-start', padding: '0.75rem' }}>
-                <Award size={16} color="var(--primary-blue)" />
-                <span>Exam Results</span>
-              </Link>
-              <Link to="/certificates" className="btn btn-secondary" style={{ justifyContent: 'flex-start', padding: '0.75rem' }}>
-                <ShieldCheck size={16} color="var(--primary-blue)" />
-                <span>Certificates</span>
-              </Link>
-            </div>
+
+            {studentData.enrolledCourses.length === 0 ? (
+              <div className="card-container" style={{ padding: '3rem', textAlign: 'center' }}>
+                <BookOpen size={48} style={{ color: 'var(--text-muted)', marginBottom: '1rem' }} />
+                <h3>No Courses Enrolled Yet</h3>
+                <p style={{ color: 'var(--text-muted)', maxWidth: '450px', margin: '0.5rem auto 1.5rem' }}>
+                  Explore our industry-aligned courses, select your preferred mode (Online/Offline), and enroll today.
+                </p>
+                <Link to="/courses" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', padding: '10px 20px' }}>
+                  Browse Available Courses <ArrowRight size={16} />
+                </Link>
+              </div>
+            ) : (
+              <div className="grid-2-col" style={{ gap: '1.25rem' }}>
+                {studentData.enrolledCourses.map(app => {
+                  const isComp = (app.completion_status || 0) >= 100;
+                  return (
+                    <div key={app.id} className="card-container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderTop: isComp ? '4px solid #10b981' : '4px solid #2563eb' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                          <div>
+                            <span className="badge" style={{ background: 'var(--bg-subtle)', marginBottom: '4px', display: 'inline-block' }}>
+                              {app.course_code}
+                            </span>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '2px 0 4px' }}>
+                              {app.course}
+                            </h3>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                              Duration: {app.duration || '6 Months'} • Mode: <strong>{app.learning_mode}</strong>
+                            </div>
+                          </div>
+                          {isComp ? (
+                            <span className="badge success" style={{ fontSize: '12px' }}>
+                              <CheckCircle2 size={12} style={{ marginRight: 4 }} /> Completed
+                            </span>
+                          ) : (
+                            <span className="badge warning" style={{ fontSize: '12px' }}>
+                              <Clock size={12} style={{ marginRight: 4 }} /> In Progress
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div style={{ margin: '1.25rem 0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
+                            <span>Course Syllabus Progress</span>
+                            <span style={{ color: isComp ? '#10b981' : '#2563eb' }}>{app.completion_status || 0}%</span>
+                          </div>
+                          <div className="progress-bar-container" style={{ height: '8px' }}>
+                            <div
+                              className="progress-bar-fill"
+                              style={{
+                                width: `${app.completion_status || 0}%`,
+                                background: isComp ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #2563eb, #38bdf8)'
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        {/* Stats Row */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', background: 'var(--bg-subtle)', padding: '0.75rem', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+                          <div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>ATTENDANCE</div>
+                            <div style={{ fontWeight: 700, color: app.attendance_stats?.percentage >= 75 ? '#10b981' : '#ef4444' }}>
+                              {app.attendance_stats?.percentage || 0}%
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>PAYMENT</div>
+                            <div style={{ fontWeight: 700, color: '#10b981' }}>{app.payment_status}</div>
+                          </div>
+                          <div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>CERTIFICATE</div>
+                            <div style={{ fontWeight: 700, color: isComp ? '#10b981' : 'var(--text-muted)' }}>
+                              {isComp ? 'Available' : 'Locked'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <Link
+                          to={`/course-details/${app.id}`}
+                          className="btn-primary"
+                          style={{ flex: 1, textDecoration: 'none', textAlign: 'center', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px' }}
+                        >
+                          <Layers size={16} /> Course & Syllabus Details
+                        </Link>
+                        {isComp && app.certificate_id && (
+                          <a
+                            href={api.getCertificateDownloadUrl(app.certificate_id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-secondary"
+                            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '9px 12px' }}
+                            title="Download Certificate"
+                          >
+                            <Download size={16} /> PDF
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Payment History Section */}
+          <div className="card-container">
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CreditCard size={18} color="var(--primary-blue)" /> Payment History & Receipts
+            </h3>
+            {studentData.paymentHistory.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No fee payment transactions recorded yet.</p>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Course</th>
+                    <th>Payment Amount</th>
+                    <th>Payment Method</th>
+                    <th>Status</th>
+                    <th>Transaction Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {studentData.paymentHistory.map(pay => (
+                    <tr key={pay.id}>
+                      <td style={{ fontWeight: 700 }}>{pay.course}</td>
+                      <td style={{ fontWeight: 700, color: '#10b981' }}>₹{pay.amount?.toLocaleString()}</td>
+                      <td>{pay.method}</td>
+                      <td>
+                        <span className="badge success">{pay.status}</span>
+                      </td>
+                      <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        {pay.date ? new Date(pay.date).toLocaleDateString() : 'Instant'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </>
       )}
-
-      {/* Fee Notification Modal */}
-      <Modal
-        isOpen={!!selectedStudentForFee}
-        onClose={() => { setSelectedStudentForFee(null); setFeeActionMessage(''); }}
-        title={`Send Fee Notification: ${selectedStudentForFee?.name} (${selectedStudentForFee?.registration_id})`}
-        maxWidth="520px"
-      >
-        {selectedStudentForFee && (
-          <form onSubmit={handleSendQuickFeeNotice}>
-            {feeActionMessage && (
-              <div className={`alert ${feeActionMessage.startsWith('Error') ? 'alert-danger' : 'alert-success'}`} style={{ marginBottom: '1rem' }}>
-                {feeActionMessage.startsWith('Error') ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
-                <div>{feeActionMessage}</div>
-              </div>
-            )}
-
-            <div style={{
-              background: 'var(--bg-subtle, #f8fafc)',
-              padding: '0.85rem',
-              borderRadius: '6px',
-              marginBottom: '1rem',
-              fontSize: '12.5px',
-              display: 'grid',
-              gap: '6px'
-            }}>
-              <div><strong>Student Email (Gmail):</strong> {selectedStudentForFee.email}</div>
-              {selectedStudentForFee.parent_email && (
-                <div><strong>Parent Email:</strong> {selectedStudentForFee.parent_email} ({selectedStudentForFee.parent_name || 'Parent'})</div>
-              )}
-              <div><strong>Enrolled Course:</strong> {selectedStudentForFee.course || 'None'} ({selectedStudentForFee.course_duration || '1 Year'})</div>
-              <div><strong>Total Course Fee:</strong> ₹{(selectedStudentForFee.course_fee || 0).toLocaleString()}</div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="customNote">
-                Custom Message / Due Date Note <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>(Optional)</span>
-              </label>
-              <textarea
-                id="customNote"
-                className="form-control"
-                rows={3}
-                placeholder="e.g. Please clear the pending installment by 25th of this month to avoid exam hold."
-                value={feeCustomNote}
-                onChange={(e) => setFeeCustomNote(e.target.value)}
-              />
-            </div>
-
-            <div className="modal-footer" style={{ margin: '1.25rem -1.25rem -1.25rem' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => { setSelectedStudentForFee(null); setFeeActionMessage(''); }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={feeActionLoading}
-              >
-                {feeActionLoading ? (
-                  <span>Dispatching Email...</span>
-                ) : (
-                  <>
-                    <Send size={14} />
-                    <span>Send Email Notification</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        )}
-      </Modal>
     </div>
   );
 }
+export default DashboardPage;

@@ -54,8 +54,59 @@ app.add_middleware(
 )
 
 
+from sqlalchemy import text
+
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+# Dynamic DB Schema Migrations for existing tables
+migrations = [
+    "ALTER TABLE courses ADD COLUMN mode VARCHAR(50) DEFAULT 'Both';",
+    "ALTER TABLE courses ADD COLUMN total_classes INTEGER DEFAULT 20;",
+    "ALTER TABLE courses ADD COLUMN start_date VARCHAR(30);",
+    "ALTER TABLE courses ADD COLUMN end_date VARCHAR(30);",
+    "ALTER TABLE courses ADD COLUMN capacity INTEGER DEFAULT 50;",
+    "ALTER TABLE courses ADD COLUMN is_active BOOLEAN DEFAULT TRUE;",
+    "ALTER TABLE course_applications ADD COLUMN learning_mode VARCHAR(20) DEFAULT 'Online';",
+    "ALTER TABLE course_applications ADD COLUMN payment_status VARCHAR(20) DEFAULT 'Pending';",
+    "ALTER TABLE course_applications ADD COLUMN payment_method VARCHAR(50) DEFAULT 'UPI';",
+    "ALTER TABLE course_applications ADD COLUMN amount_paid INTEGER DEFAULT 0;",
+    "ALTER TABLE course_applications ADD COLUMN completion_status INTEGER DEFAULT 0;",
+    "ALTER TABLE course_applications ADD COLUMN completion_date TIMESTAMP;",
+    "ALTER TABLE certificates ADD COLUMN course_name VARCHAR(150);",
+    "ALTER TABLE certificates ADD COLUMN institute_code VARCHAR(50);",
+    "ALTER TABLE students ADD COLUMN approval_status VARCHAR(30) DEFAULT 'Approved';",
+    "ALTER TABLE students ADD COLUMN registration_date VARCHAR(50);",
+    "ALTER TABLE faculty ADD COLUMN institute_code VARCHAR(50);",
+    "ALTER TABLE batches ADD COLUMN institute_code VARCHAR(50);",
+    "ALTER TABLE notices ADD COLUMN institute_code VARCHAR(50);",
+    "ALTER TABLE fees ADD COLUMN institute_code VARCHAR(50);",
+    "ALTER TABLE institutes ADD COLUMN payment_upi_id VARCHAR(100);",
+    "ALTER TABLE institutes ADD COLUMN payment_qr_code_url VARCHAR(500);",
+    "ALTER TABLE institutes ADD COLUMN payment_bank_details VARCHAR(500);",
+    "ALTER TABLE institutes ADD COLUMN payment_instructions VARCHAR(500);",
+    "ALTER TABLE institutes ADD COLUMN certificate_title VARCHAR(150);",
+    "ALTER TABLE institutes ADD COLUMN certificate_signatory_name VARCHAR(100);",
+    "ALTER TABLE institutes ADD COLUMN certificate_logo_url VARCHAR(500);",
+]
+
+for m in migrations:
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(m))
+            conn.commit()
+    except Exception:
+        pass
+
+try:
+    with engine.connect() as conn:
+        conn.execute(text("UPDATE students SET approval_status = 'Approved' WHERE approval_status IS NULL;"))
+        conn.execute(text("UPDATE users SET is_active = TRUE WHERE role = 'student';"))
+        conn.commit()
+except Exception as e:
+    pass
+
+
 
 
 @app.get("/")

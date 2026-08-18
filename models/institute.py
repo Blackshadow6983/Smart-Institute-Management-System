@@ -42,6 +42,17 @@ class Institute(Base):
         nullable=False
     )
 
+    # Payment Settings for Institute
+    payment_upi_id = Column(String(100), nullable=True)
+    payment_qr_code_url = Column(String(500), nullable=True)
+    payment_bank_details = Column(String(500), nullable=True)
+    payment_instructions = Column(String(500), nullable=True)
+
+    # Certificate Template Settings for Institute
+    certificate_title = Column(String(150), nullable=True)
+    certificate_signatory_name = Column(String(100), nullable=True)
+    certificate_logo_url = Column(String(500), nullable=True)
+
     created_at = Column(
         DateTime,
         default=datetime.utcnow

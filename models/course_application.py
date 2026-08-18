@@ -49,3 +49,38 @@ class CourseApplication(Base):
         String(500),
         nullable=True
     )
+
+    learning_mode = Column(
+        String(20),
+        default="Online",
+        nullable=False
+    )
+
+    payment_status = Column(
+        String(20),
+        default="Paid",
+        nullable=False
+    )
+
+    payment_method = Column(
+        String(50),
+        default="UPI",
+        nullable=True
+    )
+
+    amount_paid = Column(
+        Integer,
+        default=0,
+        nullable=False
+    )
+
+    completion_status = Column(
+        Integer,
+        default=0,
+        nullable=False
+    )
+
+    completion_date = Column(
+        DateTime,
+        nullable=True
+    )

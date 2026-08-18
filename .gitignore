@@ -2,11 +2,15 @@
 .venv-1/
 __pycache__/
 *.pyc
+
 .env
 .env.local
 .env.*
 !.env.example
-institute.db
+
+*.db
+*.sqlite
+*.sqlite3
 
 reports/pdf/*
 reports/excel/*

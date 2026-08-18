@@ -8,6 +8,12 @@ class Notice(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
+    institute_code = Column(
+        String(50),
+        nullable=True,
+        index=True
+    )
+
     title = Column(String(200), nullable=False)
 
     message = Column(Text, nullable=False)

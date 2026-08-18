@@ -20,11 +20,21 @@ import { CertificatesPage } from './pages/CertificatesPage';
 import { CourseApplicationsPage } from './pages/CourseApplicationsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
+import { StudentCourseDetailsPage } from './pages/StudentCourseDetailsPage';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
+function FacultyRestrictedRoute({ children }) {
+  const { user } = useAuth();
+  const role = (user?.role || '').toLowerCase();
+  if (role === 'faculty') {
+    return <Navigate to="/attendance" replace />;
   }
   return children;
 }
@@ -54,17 +64,18 @@ function AppRoutes() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="students" element={<StudentsPage />} />
-        <Route path="faculty" element={<FacultyPage />} />
-        <Route path="courses" element={<CoursesPage />} />
-        <Route path="batches" element={<BatchesPage />} />
+        <Route path="students" element={<FacultyRestrictedRoute><StudentsPage /></FacultyRestrictedRoute>} />
+        <Route path="faculty" element={<FacultyRestrictedRoute><FacultyPage /></FacultyRestrictedRoute>} />
+        <Route path="courses" element={<FacultyRestrictedRoute><CoursesPage /></FacultyRestrictedRoute>} />
+        <Route path="course-details/:appId" element={<StudentCourseDetailsPage />} />
+        <Route path="batches" element={<FacultyRestrictedRoute><BatchesPage /></FacultyRestrictedRoute>} />
         <Route path="attendance" element={<AttendancePage />} />
-        <Route path="fees" element={<FeesPage />} />
-        <Route path="marks" element={<MarksPage />} />
+        <Route path="fees" element={<FacultyRestrictedRoute><FeesPage /></FacultyRestrictedRoute>} />
+        <Route path="marks" element={<FacultyRestrictedRoute><MarksPage /></FacultyRestrictedRoute>} />
         <Route path="notices" element={<NoticesPage />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="certificates" element={<CertificatesPage />} />
-        <Route path="applications" element={<CourseApplicationsPage />} />
+        <Route path="reports" element={<FacultyRestrictedRoute><ReportsPage /></FacultyRestrictedRoute>} />
+        <Route path="certificates" element={<FacultyRestrictedRoute><CertificatesPage /></FacultyRestrictedRoute>} />
+        <Route path="applications" element={<FacultyRestrictedRoute><CourseApplicationsPage /></FacultyRestrictedRoute>} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="change-password" element={<ChangePasswordPage />} />
       </Route>
@@ -73,6 +84,7 @@ function AppRoutes() {
     </Routes>
   );
 }
+
 
 export function App() {
   return (

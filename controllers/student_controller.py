@@ -141,8 +141,13 @@ def get_all_students(
     current_user: dict = Depends(get_current_user)
 ):
     role = current_user["role"].lower()
-    inst_code = current_user.get("institute_code")
+    if role == "faculty":
+        raise HTTPException(
+            status_code=403,
+            detail="Faculty access is restricted to student attendance only."
+        )
 
+    inst_code = current_user.get("institute_code")
     query = db.query(Student)
 
     if role == "student":
@@ -150,10 +155,7 @@ def get_all_students(
         query = query.filter(Student.registration_id == current_user["username"])
     elif inst_code:
         # Institute admin sees only students of their institute
-        query = query.filter(
-            (Student.institute_code == inst_code) |
-            (Student.institute_code == "DEFAULT")
-        )
+        query = query.filter(Student.institute_code == inst_code)
 
     students = query.order_by(Student.id.desc()).all()
     return [
@@ -177,6 +179,7 @@ def get_all_students(
         }
         for s in students
     ]
+
 
 
 # =========================================================
@@ -315,3 +318,73 @@ def update_student(
             "batch": student.batch
         }
     }
+
+
+# =========================================================
+# INSTITUTE APPROVAL WORKFLOW ENDPOINTS (ADMIN ONLY)
+# =========================================================
+
+class ApproveStudentRequest(BaseModel):
+    assigned_registration_id: str | None = None
+
+class RejectStudentRequest(BaseModel):
+    reason: str | None = None
+
+
+@router.get("/pending-approvals/list")
+def list_pending_approvals(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    from services.registration_service import get_pending_student_approvals
+    inst_code = current_user.get("institute_code")
+    pending = get_pending_student_approvals(db, inst_code)
+    return pending
+
+
+@router.post("/{student_id}/approve")
+def approve_student_request(
+    student_id: int,
+    data: ApproveStudentRequest = ApproveStudentRequest(),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    from services.registration_service import approve_student_registration
+
+    result, err = approve_student_registration(
+        db=db,
+        student_id=student_id,
+        assigned_registration_id=data.assigned_registration_id
+    )
+
+    if err:
+        raise HTTPException(
+            status_code=400,
+            detail=err
+        )
+
+    return result
+
+
+@router.post("/{student_id}/reject")
+def reject_student_request(
+    student_id: int,
+    data: RejectStudentRequest = RejectStudentRequest(),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    from services.registration_service import reject_student_registration
+
+    result, err = reject_student_registration(
+        db=db,
+        student_id=student_id,
+        reason=data.reason
+    )
+
+    if err:
+        raise HTTPException(
+            status_code=400,
+            detail=err
+        )
+
+    return result

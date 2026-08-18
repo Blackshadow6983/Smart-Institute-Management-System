@@ -52,3 +52,8 @@ class Student(Base):
     course_fee = Column(Float, default=0.0)
 
     batch = Column(String(100), nullable=True)
+
+    # Approval & Registration Workflow
+    approval_status = Column(String(30), default="Approved", index=True)
+
+    registration_date = Column(String(50), nullable=True)

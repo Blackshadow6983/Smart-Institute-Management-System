@@ -8,6 +8,12 @@ class Certificate(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
+    institute_code = Column(
+        String(50),
+        nullable=True,
+        index=True
+    )
+
     student_id = Column(Integer, nullable=False)
 
     certificate_number = Column(
@@ -27,3 +33,8 @@ class Certificate(Base):
         String(30),
         default="Issued"
     )
+
+    course_name = Column(
+        String(150),
+        nullable=True
+    )

@@ -8,6 +8,12 @@ class Batch(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
+    institute_code = Column(
+        String(50),
+        nullable=True,
+        index=True
+    )
+
     name = Column(
         String(100),
         nullable=False

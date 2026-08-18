@@ -43,14 +43,12 @@ def create_fee(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-
     role = current_user["role"].lower()
 
-    # Only admin can create fee payments
-    if role != "admin":
+    if role not in ["admin", "institute", "institute_admin"]:
         raise HTTPException(
             status_code=403,
-            detail="Only admin can create fee payments"
+            detail="Only Institute Admins can create fee payments"
         )
 
     fee = add_fee(
@@ -77,49 +75,29 @@ def student_fees(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-
     role = current_user["role"].lower()
 
-    # -----------------------------------------------------
-    # STUDENT
-    # -----------------------------------------------------
+    if role == "faculty":
+        raise HTTPException(
+            status_code=403,
+            detail="Faculty access is restricted to student attendance only."
+        )
 
     if role == "student":
-
-        # Find student profile using registration ID
         student = (
             db.query(Student)
-            .filter(
-                Student.registration_id ==
-                current_user["username"]
-            )
+            .filter(Student.registration_id == current_user["username"])
             .first()
         )
 
-        if not student:
-            raise HTTPException(
-                status_code=404,
-                detail="Student profile not found"
-            )
-
-        # Student can only view their own fees
-        if student.id != student_id:
+        if not student or student.id != student_id:
             raise HTTPException(
                 status_code=403,
                 detail="You can only view your own fees"
             )
 
-    # -----------------------------------------------------
-    # ADMIN / FACULTY
-    # -----------------------------------------------------
-
-    elif role in ["admin", "faculty"]:
+    elif role in ["admin", "institute", "institute_admin"]:
         pass
-
-    # -----------------------------------------------------
-    # INVALID ROLE
-    # -----------------------------------------------------
-
     else:
         raise HTTPException(
             status_code=403,
@@ -142,47 +120,29 @@ def fee_summary(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-
     role = current_user["role"].lower()
 
-    # -----------------------------------------------------
-    # STUDENT
-    # -----------------------------------------------------
+    if role == "faculty":
+        raise HTTPException(
+            status_code=403,
+            detail="Faculty access is restricted to student attendance only."
+        )
 
     if role == "student":
-
         student = (
             db.query(Student)
-            .filter(
-                Student.registration_id ==
-                current_user["username"]
-            )
+            .filter(Student.registration_id == current_user["username"])
             .first()
         )
 
-        if not student:
-            raise HTTPException(
-                status_code=404,
-                detail="Student profile not found"
-            )
-
-        if student.id != student_id:
+        if not student or student.id != student_id:
             raise HTTPException(
                 status_code=403,
                 detail="You can only view your own fee summary"
             )
 
-    # -----------------------------------------------------
-    # ADMIN / FACULTY
-    # -----------------------------------------------------
-
-    elif role in ["admin", "faculty"]:
+    elif role in ["admin", "institute", "institute_admin"]:
         pass
-
-    # -----------------------------------------------------
-    # INVALID ROLE
-    # -----------------------------------------------------
-
     else:
         raise HTTPException(
             status_code=403,
@@ -192,4 +152,4 @@ def fee_summary(
     return get_fee_summary(
         db,
         student_id
-    )
+    )

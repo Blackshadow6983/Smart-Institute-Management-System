@@ -34,6 +34,67 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
+class StudentSelfRegisterRequest(BaseModel):
+    name: str
+    email: str
+    mobile: str
+    password: str
+    institute_code: str
+    course: str | None = None
+    registration_id: str | None = None
+    gender: str | None = "Male"
+    date_of_birth: str | None = None
+    address: str | None = None
+
+
+@router.post("/register-student")
+def self_register_student(
+    data: StudentSelfRegisterRequest,
+    db: Session = Depends(get_db)
+):
+    from services.registration_service import register_student
+
+    inst_code = (data.institute_code or "ITE-001").strip().upper()
+
+    result, err = register_student(
+        db=db,
+        name=data.name,
+        email=data.email,
+        mobile=data.mobile,
+        password=data.password,
+        institute_code=inst_code,
+        registration_id=data.registration_id,
+        address=data.address,
+        date_of_birth=data.date_of_birth,
+        gender=data.gender or "Male",
+        course=data.course,
+        send_credentials_email=False
+    )
+
+    if err:
+        raise HTTPException(
+            status_code=400,
+            detail=err
+        )
+
+    student = result["student"]
+    return {
+        "message": f"Registration successful! Account activated with Enrollment Number {student.registration_id}.",
+        "student": {
+            "id": student.id,
+            "name": student.name,
+            "registration_id": student.registration_id,
+            "email": student.email,
+            "mobile": student.mobile,
+            "institute_code": student.institute_code,
+            "course": student.course
+        },
+        "registration_id": student.registration_id,
+        "status": "Approved"
+    }
+
+
+
 @router.post("/login")
 def login(
     data: LoginRequest,

@@ -59,23 +59,23 @@ def get_student_report(
             )
 
     # =========================================
-    # FACULTY / ADMIN
+    # FACULTY DENIED / ADMIN ONLY
     # =========================================
 
-    elif role in ["faculty", "admin"]:
-
-        # Faculty and admin can access any student report
-        pass
-
-    # =========================================
-    # INVALID ROLE
-    # =========================================
+    elif role in ["admin", "institute", "institute_admin"]:
+        inst_code = current_user.get("institute_code")
+        stu = db.query(Student).filter(Student.id == student_id).first()
+        if not stu:
+            raise HTTPException(status_code=404, detail="Student profile not found")
+        if inst_code and stu.institute_code != inst_code:
+            raise HTTPException(status_code=403, detail="Student does not belong to your institute")
 
     else:
         raise HTTPException(
             status_code=403,
-            detail="Access denied"
+            detail="Faculty access is restricted to student attendance only."
         )
+
 
     # =========================================
     # GET REPORT

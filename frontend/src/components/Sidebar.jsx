@@ -6,18 +6,17 @@ import {
   Users,
   GraduationCap,
   BookOpen,
-  Layers,
   CalendarCheck,
   CreditCard,
-  Award,
-  Bell,
-  FileSpreadsheet,
   FileCheck,
+  FileSpreadsheet,
   FileText,
   User,
   KeyRound,
   LogOut,
-  Building2
+  Building2,
+  ShieldAlert,
+  Search
 } from 'lucide-react';
 
 export function Sidebar({ isOpen, onClose }) {
@@ -30,7 +29,11 @@ export function Sidebar({ isOpen, onClose }) {
   };
 
   const role = (user?.role || 'student').toLowerCase();
-  const instCode = user?.institute_code || 'ITE-001';
+  const isAdmin = ['admin', 'institute', 'institute_admin'].includes(role);
+  const isFaculty = role === 'faculty';
+  const isStudent = role === 'student';
+
+  const instCode = user?.institute_code || 'DEFAULT';
   const instName = user?.institute_name || 'AI SMART INSTITUTE';
 
   return (
@@ -59,7 +62,7 @@ export function Sidebar({ isOpen, onClose }) {
               fontSize: '10px',
               letterSpacing: '0.4px'
             }}>
-              {instCode}
+              {isAdmin ? 'ADMIN' : (isFaculty ? 'STAFF' : 'STUDENT')}
             </span>
             <span>Portal</span>
           </div>
@@ -67,71 +70,68 @@ export function Sidebar({ isOpen, onClose }) {
       </div>
 
       <nav className="sidebar-nav">
-        <div className="nav-section-title">Core Modules</div>
+        <div className="nav-section-title">Navigation</div>
         
         <NavLink to="/dashboard" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
           <LayoutDashboard size={18} />
           <span>Dashboard</span>
         </NavLink>
 
-        <NavLink to="/students" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-          <Users size={18} />
-          <span>Students</span>
-        </NavLink>
+        {!isFaculty && (
+          <NavLink to="/courses" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+            <BookOpen size={18} />
+            <span>{isAdmin ? 'Course Management' : 'Browse Courses'}</span>
+          </NavLink>
+        )}
 
-        <NavLink to="/faculty" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-          <GraduationCap size={18} />
-          <span>Faculty</span>
-        </NavLink>
+        {isAdmin && (
+          <NavLink to="/students" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+            <Users size={18} />
+            <span>Student Management</span>
+          </NavLink>
+        )}
 
-        <NavLink to="/courses" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-          <BookOpen size={18} />
-          <span>Courses</span>
-        </NavLink>
-
-        <NavLink to="/batches" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-          <Layers size={18} />
-          <span>Batches</span>
-        </NavLink>
+        {isAdmin && (
+          <NavLink to="/faculty" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+            <GraduationCap size={18} />
+            <span>Faculty Management</span>
+          </NavLink>
+        )}
 
         <NavLink to="/attendance" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
           <CalendarCheck size={18} />
           <span>Attendance</span>
         </NavLink>
 
-        <NavLink to="/fees" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-          <CreditCard size={18} />
-          <span>Fees & Accounts</span>
-        </NavLink>
+        {isAdmin && (
+          <NavLink to="/applications" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+            <FileText size={18} />
+            <span>Enrollments</span>
+          </NavLink>
+        )}
 
-        <NavLink to="/marks" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-          <Award size={18} />
-          <span>Marks & Results</span>
-        </NavLink>
+        {!isFaculty && (
+          <NavLink to="/fees" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+            <CreditCard size={18} />
+            <span>{isStudent ? 'Fee Payments' : 'Fees & Accounts'}</span>
+          </NavLink>
+        )}
 
-        <div className="nav-section-title" style={{ marginTop: '0.6rem' }}>Academic Records</div>
+        {!isFaculty && (
+          <NavLink to="/certificates" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+            <FileCheck size={18} />
+            <span>Certificates & Verification</span>
+          </NavLink>
+        )}
 
-        <NavLink to="/notices" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-          <Bell size={18} />
-          <span>Notices</span>
-        </NavLink>
+        {isAdmin && (
+          <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+            <FileSpreadsheet size={18} />
+            <span>Reports & Analytics</span>
+          </NavLink>
+        )}
 
-        <NavLink to="/applications" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-          <FileText size={18} />
-          <span>Applications</span>
-        </NavLink>
-
-        <NavLink to="/certificates" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-          <FileCheck size={18} />
-          <span>Certificates</span>
-        </NavLink>
-
-        <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-          <FileSpreadsheet size={18} />
-          <span>Reports</span>
-        </NavLink>
-
-        <div className="nav-section-title" style={{ marginTop: '0.6rem' }}>Account</div>
+        <div className="nav-section-title" style={{ marginTop: '0.8rem' }}>Account</div>
 
         <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
           <User size={18} />
@@ -144,6 +144,7 @@ export function Sidebar({ isOpen, onClose }) {
         </NavLink>
       </nav>
 
+
       <div className="sidebar-footer">
         <div className="user-profile-badge">
           <div className="user-avatar">
@@ -152,8 +153,7 @@ export function Sidebar({ isOpen, onClose }) {
           <div className="user-info">
             <div className="user-name">{user?.username || 'User'}</div>
             <div className="user-role" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>{user?.role?.toUpperCase() || 'GUEST'}</span>
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>({instCode})</span>
+              <span>{user?.role?.toUpperCase() || 'STUDENT'}</span>
             </div>
           </div>
           <button className="btn-logout" onClick={handleLogout} title="Sign Out">

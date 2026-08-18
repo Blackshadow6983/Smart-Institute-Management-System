@@ -18,6 +18,12 @@ class Faculty(Base):
         nullable=False
     )
 
+    institute_code = Column(
+        String(50),
+        nullable=True,
+        index=True
+    )
+
     name = Column(
         String(100),
         nullable=False

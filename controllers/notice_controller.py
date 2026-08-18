@@ -29,19 +29,17 @@ def create_notice(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-
     role = current_user["role"].lower()
-
-    # Only Admin and Faculty can create notices
-    if role not in ["admin", "faculty"]:
-        from fastapi import HTTPException
-
+    if role not in ["admin", "institute", "institute_admin"]:
         raise HTTPException(
             status_code=403,
-            detail="Only admin or faculty can create notices"
+            detail="Only Institute Admins can create notices"
         )
 
+    inst_code = current_user.get("institute_code")
+
     notice = Notice(
+        institute_code=inst_code,
         title=data.title,
         message=data.message,
         created_at=datetime.now()
@@ -55,6 +53,7 @@ def create_notice(
         "message": "Notice created successfully",
         "notice": {
             "id": notice.id,
+            "institute_code": notice.institute_code,
             "title": notice.title,
             "message": notice.message,
             "created_at": notice.created_at
@@ -64,7 +63,6 @@ def create_notice(
 
 # =========================================================
 # VIEW NOTICES
-# ADMIN + FACULTY + STUDENT
 # =========================================================
 
 @router.get("/")
@@ -72,9 +70,26 @@ def get_notices(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    role = current_user.get("role", "").lower()
+    if role == "faculty":
+        raise HTTPException(
+            status_code=403,
+            detail="Faculty access is restricted to student attendance only."
+        )
+
+    inst_code = current_user.get("institute_code")
+
+    if role == "student" and not inst_code:
+        from models.student import Student
+        stu = db.query(Student).filter(Student.registration_id == current_user["username"]).first()
+        if stu:
+            inst_code = stu.institute_code
+
+    query = db.query(Notice)
+    if inst_code:
+        query = query.filter(Notice.institute_code == inst_code)
 
     return (
-        db.query(Notice)
-        .order_by(Notice.id.desc())
+        query.order_by(Notice.id.desc())
         .all()
-    )
+    )

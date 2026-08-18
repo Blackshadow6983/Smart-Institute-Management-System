@@ -22,6 +22,7 @@ class FacultyRegisterRequest(BaseModel):
     name: str
     email: EmailStr
     mobile: str
+    password: str = "faculty123"
     address: str | None = None
     qualification: str | None = None
     specialization: str | None = None
@@ -29,8 +30,7 @@ class FacultyRegisterRequest(BaseModel):
 
 
 # =========================================================
-# REGISTER NEW FACULTY
-# ADMIN ONLY
+# REGISTER NEW FACULTY (INSTITUTE ADMIN ONLY)
 # =========================================================
 
 @router.post("/register")
@@ -39,6 +39,11 @@ def register_faculty(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin)
 ):
+    from models.user import User
+    from services.password_service import hash_password
+
+    inst_code = current_user.get("institute_code")
+
     existing = (
         db.query(Faculty)
         .filter(Faculty.employee_id == data.employee_id)
@@ -51,8 +56,16 @@ def register_faculty(
             detail="Employee ID already exists"
         )
 
+    existing_user = db.query(User).filter(User.username == data.employee_id).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail=f"User login account for '{data.employee_id}' already exists"
+        )
+
     faculty = Faculty(
         employee_id=data.employee_id,
+        institute_code=inst_code,
         name=data.name,
         email=data.email,
         mobile=data.mobile,
@@ -63,14 +76,27 @@ def register_faculty(
     )
 
     db.add(faculty)
+
+    # Create faculty user login account
+    user = User(
+        username=data.employee_id,
+        password=hash_password(data.password),
+        role="faculty",
+        institute_code=inst_code,
+        is_active=True,
+        must_change_password=False
+    )
+    db.add(user)
+
     db.commit()
     db.refresh(faculty)
 
     return {
-        "message": "Faculty registered successfully",
+        "message": f"Faculty '{faculty.name}' registered successfully! Login Username: {faculty.employee_id}",
         "faculty": {
             "id": faculty.id,
             "employee_id": faculty.employee_id,
+            "institute_code": faculty.institute_code,
             "name": faculty.name,
             "email": faculty.email,
             "mobile": faculty.mobile,
@@ -80,6 +106,7 @@ def register_faculty(
             "department": faculty.department
         }
     }
+
 
 
 # =========================================================

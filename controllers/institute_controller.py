@@ -37,6 +37,13 @@ class InstituteUpdateRequest(BaseModel):
     name: str | None = None
     contact_number: str | None = None
     address: str | None = None
+    payment_upi_id: str | None = None
+    payment_qr_code_url: str | None = None
+    payment_bank_details: str | None = None
+    payment_instructions: str | None = None
+    certificate_title: str | None = None
+    certificate_signatory_name: str | None = None
+    certificate_logo_url: str | None = None
 
 
 class SendFeeNotificationRequest(BaseModel):
@@ -101,13 +108,19 @@ def get_current_institute_profile(
 ):
     institute = get_institute_for_user(db, current_user)
     if not institute:
-        # If default placeholder needed
         return {
             "institute_code": current_user.get("institute_code") or "INST-001",
-            "name": "AI Smart Institute of Technology",
+            "name": "Institute Portal",
             "email": "admin@institute.edu",
-            "contact_number": "+91 98765 43210",
-            "address": "Institutional Campus, Tech District"
+            "contact_number": "",
+            "address": "",
+            "payment_upi_id": "",
+            "payment_qr_code_url": "",
+            "payment_bank_details": "",
+            "payment_instructions": "",
+            "certificate_title": "Course Completion Certificate",
+            "certificate_signatory_name": "Director",
+            "certificate_logo_url": ""
         }
 
     return {
@@ -116,12 +129,44 @@ def get_current_institute_profile(
         "name": institute.name,
         "email": institute.email,
         "contact_number": institute.contact_number,
-        "address": institute.address
+        "address": institute.address,
+        "payment_upi_id": institute.payment_upi_id,
+        "payment_qr_code_url": institute.payment_qr_code_url,
+        "payment_bank_details": institute.payment_bank_details,
+        "payment_instructions": institute.payment_instructions,
+        "certificate_title": institute.certificate_title,
+        "certificate_signatory_name": institute.certificate_signatory_name,
+        "certificate_logo_url": institute.certificate_logo_url
     }
 
 
 # =========================================================
-# UPDATE INSTITUTE PROFILE
+# GET PUBLIC INSTITUTE PAYMENT INFO FOR STUDENTS
+# =========================================================
+
+@router.get("/payment-info/{institute_code}")
+def get_institute_payment_info(
+    institute_code: str,
+    db: Session = Depends(get_db)
+):
+    inst = get_institute_by_code(db, institute_code.strip().upper())
+    if not inst:
+        raise HTTPException(status_code=404, detail="Institute not found")
+
+    return {
+        "institute_code": inst.institute_code,
+        "name": inst.name,
+        "email": inst.email,
+        "contact_number": inst.contact_number,
+        "payment_upi_id": inst.payment_upi_id or f"{inst.institute_code.lower()}@upi",
+        "payment_qr_code_url": inst.payment_qr_code_url,
+        "payment_bank_details": inst.payment_bank_details or f"Bank: State Bank of India\nA/C: 1234567890\nIFSC: SBIN0001234\nBranch: Main Branch",
+        "payment_instructions": inst.payment_instructions or "Scan QR code or use UPI ID to complete fee payment. Submit UTR reference ID to Admin for verification."
+    }
+
+
+# =========================================================
+# UPDATE INSTITUTE PROFILE & SETTINGS
 # =========================================================
 
 @router.put("/profile")
@@ -143,21 +188,43 @@ def update_institute_profile(
         institute.contact_number = data.contact_number.strip()
     if data.address is not None:
         institute.address = data.address.strip()
+    if data.payment_upi_id is not None:
+        institute.payment_upi_id = data.payment_upi_id.strip()
+    if data.payment_qr_code_url is not None:
+        institute.payment_qr_code_url = data.payment_qr_code_url.strip()
+    if data.payment_bank_details is not None:
+        institute.payment_bank_details = data.payment_bank_details.strip()
+    if data.payment_instructions is not None:
+        institute.payment_instructions = data.payment_instructions.strip()
+    if data.certificate_title is not None:
+        institute.certificate_title = data.certificate_title.strip()
+    if data.certificate_signatory_name is not None:
+        institute.certificate_signatory_name = data.certificate_signatory_name.strip()
+    if data.certificate_logo_url is not None:
+        institute.certificate_logo_url = data.certificate_logo_url.strip()
 
     db.commit()
     db.refresh(institute)
 
     return {
-        "message": "Institute profile updated successfully",
+        "message": "Institute settings and profile updated successfully",
         "institute": {
             "id": institute.id,
             "institute_code": institute.institute_code,
             "name": institute.name,
             "email": institute.email,
             "contact_number": institute.contact_number,
-            "address": institute.address
+            "address": institute.address,
+            "payment_upi_id": institute.payment_upi_id,
+            "payment_qr_code_url": institute.payment_qr_code_url,
+            "payment_bank_details": institute.payment_bank_details,
+            "payment_instructions": institute.payment_instructions,
+            "certificate_title": institute.certificate_title,
+            "certificate_signatory_name": institute.certificate_signatory_name,
+            "certificate_logo_url": institute.certificate_logo_url
         }
     }
+
 
 
 # =========================================================
