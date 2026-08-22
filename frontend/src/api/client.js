@@ -41,7 +41,7 @@ export async function apiRequest(endpoint, options = {}) {
     return data;
   } catch (err) {
     if (err.name === 'TypeError' && (err.message === 'Failed to fetch' || err.message.includes('fetch'))) {
-      throw new Error('Server connection failed. Please check if the backend server (FastAPI at http://127.0.0.1:8000) is running.');
+      throw new Error('Server connection failed. Please check the backend server.');
     }
     throw err;
   }
@@ -112,7 +112,7 @@ export const api = {
   getStudentInvoices: (studentId) => apiRequest(`/invoices/student/${studentId}`),
   getInstituteInvoices: () => apiRequest('/invoices/institute'),
   getInvoiceDetails: (invoiceId) => apiRequest(`/invoices/${invoiceId}`),
-  getInvoiceHtmlUrl: (invoiceId) => `${API_BASE_URL || 'http://127.0.0.1:8000'}/invoices/${invoiceId}/html`,
+  getInvoiceHtmlUrl: (invoiceId) => `${API_BASE_URL}/invoices/${invoiceId}/html`,
 
   // Assessments, Notices & Suggestions
   createAssessment: (data) => apiRequest('/assessments/', { method: 'POST', body: JSON.stringify(data) }),
