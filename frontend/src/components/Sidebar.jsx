@@ -16,7 +16,10 @@ import {
   LogOut,
   Building2,
   ShieldAlert,
-  Search
+  Search,
+  Layers,
+  Bell,
+  MessageSquarePlus
 } from 'lucide-react';
 
 export function Sidebar({ isOpen, onClose }) {
@@ -37,7 +40,7 @@ export function Sidebar({ isOpen, onClose }) {
   const instName = user?.institute_name || 'AI SMART INSTITUTE';
 
   return (
-    <aside className={`app-sidebar ${isOpen ? 'open' : ''}`}>
+    <aside className={`app-sidebar ${isOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
         <div className="sidebar-brand-icon" style={{
           background: 'linear-gradient(135deg, var(--primary-navy, #0f172a), var(--primary-blue, #2563eb))',
@@ -123,6 +126,16 @@ export function Sidebar({ isOpen, onClose }) {
             <span>Certificates & Verification</span>
           </NavLink>
         )}
+
+        <NavLink to="/batches" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+          <Layers size={18} />
+          <span>Batches & Schedule</span>
+        </NavLink>
+
+        <NavLink to="/notices" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+          <Bell size={18} />
+          <span>Notices & Suggestions</span>
+        </NavLink>
 
         {isAdmin && (
           <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>

@@ -9,6 +9,7 @@ export function Layout({ pageTitle = 'Institutional Portal' }) {
 
   return (
     <div className="app-container">
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="app-main">
         <Header title={pageTitle} onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />

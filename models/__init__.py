@@ -13,3 +13,5 @@ from .user import User
 from .admin import Admin
 from .fees import Fee
 from .notice import Notice
+from .suggestion import Suggestion
+from .tax_invoice import TaxInvoice

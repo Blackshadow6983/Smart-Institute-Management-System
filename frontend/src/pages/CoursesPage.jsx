@@ -47,7 +47,7 @@ export function CoursesPage() {
     name: '',
     description: '',
     duration: '6 Months',
-    fees: 25000,
+    fees: '',
     mode: 'Both',
     total_classes: 20,
     start_date: '',
@@ -100,6 +100,19 @@ export function CoursesPage() {
       });
       setSuccess(`Course ${formData.name} created successfully!`);
       setIsAddModalOpen(false);
+      setFormData({
+        course_code: '',
+        name: '',
+        description: '',
+        duration: '6 Months',
+        fees: '',
+        mode: 'Both',
+        total_classes: 20,
+        start_date: '',
+        end_date: '',
+        capacity: 50,
+        is_active: true
+      });
       loadCourses();
     } catch (err) {
       setError(err.message || 'Error creating course.');

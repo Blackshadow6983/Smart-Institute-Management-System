@@ -77,14 +77,15 @@ def get_all_batches(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    role = current_user["role"].lower()
-    if role == "faculty":
-        raise HTTPException(
-            status_code=403,
-            detail="Faculty access is restricted to student attendance only."
-        )
-
+    role = current_user.get("role", "").lower()
     inst_code = current_user.get("institute_code")
+
+    if role == "student" and not inst_code:
+        from models.student import Student
+        stu = db.query(Student).filter(Student.registration_id == current_user.get("username")).first()
+        if stu:
+            inst_code = stu.institute_code
+
     query = db.query(Batch)
     if inst_code:
         query = query.filter(Batch.institute_code == inst_code)
@@ -102,13 +103,6 @@ def get_batch(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    role = current_user["role"].lower()
-    if role == "faculty":
-        raise HTTPException(
-            status_code=403,
-            detail="Faculty access is restricted to student attendance only."
-        )
-
     batch = (
         db.query(Batch)
         .filter(Batch.id == batch_id)

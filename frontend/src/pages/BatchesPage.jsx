@@ -4,13 +4,16 @@ import { useAuth } from '../context/AuthContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { EmptyState } from '../components/EmptyState';
 import { Modal } from '../components/Modal';
-import { StatusBadge } from '../components/StatusBadge';
-import { Layers, Plus, Search, Edit, CheckCircle2, AlertCircle, Clock, GraduationCap, BookOpen } from 'lucide-react';
+import { Layers, Plus, Edit, CheckCircle2, AlertCircle, Clock, GraduationCap, BookOpen, Trash2 } from 'lucide-react';
 
 export function BatchesPage() {
   const { user } = useAuth();
+  const role = (user?.role || '').toLowerCase();
+  const canManage = ['admin', 'institute', 'institute_admin', 'faculty'].includes(role);
+
   const [batches, setBatches] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [facultyList, setFacultyList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
@@ -29,13 +32,14 @@ export function BatchesPage() {
     faculty: ''
   });
 
-  const loadBatchesAndCourses = async () => {
+  const loadBatchesCoursesAndFaculty = async () => {
     setLoading(true);
     setError('');
     try {
-      const [batchData, courseData] = await Promise.allSettled([
+      const [batchData, courseData, facultyData] = await Promise.allSettled([
         api.getAllBatches(),
-        api.getAllCourses()
+        api.getAllCourses(),
+        api.getAllFaculty()
       ]);
 
       if (batchData.status === 'fulfilled') {
@@ -44,15 +48,18 @@ export function BatchesPage() {
       if (courseData.status === 'fulfilled') {
         setCourses(Array.isArray(courseData.value) ? courseData.value : []);
       }
+      if (facultyData.status === 'fulfilled') {
+        setFacultyList(Array.isArray(facultyData.value) ? facultyData.value : []);
+      }
     } catch (err) {
-      setError(err.message || 'Failed to load batches.');
+      setError(err.message || 'Failed to load batch data.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadBatchesAndCourses();
+    loadBatchesCoursesAndFaculty();
   }, []);
 
   const handleCreateBatch = async (e) => {
@@ -61,10 +68,10 @@ export function BatchesPage() {
     setSuccess('');
     try {
       await api.createBatch(formData);
-      setSuccess(`Batch ${formData.name} created successfully!`);
+      setSuccess(`Batch "${formData.name}" created successfully!`);
       setIsAddModalOpen(false);
       setFormData({ name: '', course: '', timing: '', faculty: '' });
-      loadBatchesAndCourses();
+      loadBatchesCoursesAndFaculty();
     } catch (err) {
       setError(err.message || 'Error creating batch.');
     }
@@ -77,9 +84,9 @@ export function BatchesPage() {
     setSuccess('');
     try {
       await api.updateBatch(selectedBatch.id, formData);
-      setSuccess(`Batch ${selectedBatch.name} updated.`);
+      setSuccess(`Batch "${selectedBatch.name}" updated successfully.`);
       setIsEditModalOpen(false);
-      loadBatchesAndCourses();
+      loadBatchesCoursesAndFaculty();
     } catch (err) {
       setError(err.message || 'Error updating batch.');
     }
@@ -106,19 +113,17 @@ export function BatchesPage() {
     );
   });
 
-  const canManage = user?.role === 'admin' || user?.role === 'faculty';
-
   return (
     <div>
       {error && (
-        <div className="alert alert-danger">
+        <div className="alert alert-danger" style={{ marginBottom: '1rem' }}>
           <AlertCircle size={16} />
           <div>{error}</div>
         </div>
       )}
 
       {success && (
-        <div className="alert alert-success">
+        <div className="alert alert-success" style={{ marginBottom: '1rem' }}>
           <CheckCircle2 size={16} />
           <div>{success}</div>
         </div>
@@ -144,7 +149,7 @@ export function BatchesPage() {
               <input
                 type="text"
                 className="form-control"
-                placeholder="Search batches by name, course, instructor, or timing..."
+                placeholder="Search batches by name, course, faculty, or timing..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -170,7 +175,7 @@ export function BatchesPage() {
                     <th>Batch ID</th>
                     <th>Batch Name</th>
                     <th>Associated Course</th>
-                    <th>Class Timing / Schedule</th>
+                    <th>Class Schedule / Timing</th>
                     <th>Assigned Faculty</th>
                     {canManage && <th style={{ textAlign: 'right' }}>Actions</th>}
                   </tr>
@@ -183,20 +188,20 @@ export function BatchesPage() {
                         <div style={{ fontWeight: 700, color: 'var(--primary-navy)' }}>{b.name}</div>
                       </td>
                       <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <BookOpen size={12} color="var(--primary-blue)" />
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <BookOpen size={13} color="var(--primary-blue)" />
                           {b.course || 'Unassigned'}
                         </span>
                       </td>
                       <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Clock size={12} color="var(--text-muted)" />
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <Clock size={13} color="var(--text-muted)" />
                           {b.timing || 'TBD'}
                         </span>
                       </td>
                       <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <GraduationCap size={12} color="var(--text-muted)" />
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <GraduationCap size={13} color="var(--text-muted)" />
                           {b.faculty || 'Unassigned'}
                         </span>
                       </td>
@@ -204,7 +209,7 @@ export function BatchesPage() {
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <button
                             className="btn btn-secondary btn-sm"
-                            style={{ padding: '3px 7px' }}
+                            style={{ padding: '4px 8px' }}
                             onClick={() => openEditModal(b)}
                             title="Edit Batch"
                           >
@@ -242,18 +247,33 @@ export function BatchesPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Course</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="e.g. CS101 or Data Science"
-              value={formData.course}
-              onChange={(e) => setFormData({ ...formData, course: e.target.value })}
-            />
+            <label className="form-label">Associated Course</label>
+            {courses.length > 0 ? (
+              <select
+                className="form-control"
+                value={formData.course}
+                onChange={(e) => setFormData({ ...formData, course: e.target.value })}
+              >
+                <option value="">Select a course or type custom</option>
+                {courses.map((c) => (
+                  <option key={c.id || c.course_code} value={c.title || c.name || c.course_code}>
+                    {c.title || c.name} ({c.course_code})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                className="form-control"
+                placeholder="e.g. Full Stack Web Development"
+                value={formData.course}
+                onChange={(e) => setFormData({ ...formData, course: e.target.value })}
+              />
+            )}
           </div>
 
           <div className="form-group">
-            <label className="form-label">Class Timing</label>
+            <label className="form-label">Class Timing / Schedule</label>
             <input
               type="text"
               className="form-control"
@@ -265,13 +285,28 @@ export function BatchesPage() {
 
           <div className="form-group">
             <label className="form-label">Assigned Faculty / Instructor</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="e.g. Dr. A. Sharma or EMP001"
-              value={formData.faculty}
-              onChange={(e) => setFormData({ ...formData, faculty: e.target.value })}
-            />
+            {facultyList.length > 0 ? (
+              <select
+                className="form-control"
+                value={formData.faculty}
+                onChange={(e) => setFormData({ ...formData, faculty: e.target.value })}
+              >
+                <option value="">Select assigned faculty</option>
+                {facultyList.map((f) => (
+                  <option key={f.id || f.employee_id} value={f.name || f.employee_id}>
+                    {f.name} ({f.department || 'Faculty'})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                className="form-control"
+                placeholder="e.g. Dr. A. Sharma"
+                value={formData.faculty}
+                onChange={(e) => setFormData({ ...formData, faculty: e.target.value })}
+              />
+            )}
           </div>
 
           <div className="modal-footer" style={{ margin: '1rem -1.25rem -1.25rem' }}>
@@ -305,7 +340,7 @@ export function BatchesPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Course</label>
+            <label className="form-label">Associated Course</label>
             <input
               type="text"
               className="form-control"
@@ -315,7 +350,7 @@ export function BatchesPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Class Timing</label>
+            <label className="form-label">Class Timing / Schedule</label>
             <input
               type="text"
               className="form-control"

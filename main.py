@@ -27,6 +27,8 @@ from controllers.course_application_controller import (
     router as course_application_router
 )
 from controllers.ai_controller import router as ai_router
+from controllers.suggestion_controller import router as suggestion_router
+from controllers.tax_invoice_controller import router as tax_invoice_router
 
 
 app = FastAPI(
@@ -44,9 +46,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "*"
+        "https://ai-institute-management-system-8tkg.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -102,6 +102,16 @@ try:
     with engine.connect() as conn:
         conn.execute(text("UPDATE students SET approval_status = 'Approved' WHERE approval_status IS NULL;"))
         conn.execute(text("UPDATE users SET is_active = TRUE WHERE role = 'student';"))
+        
+        # Add new columns to fees if missing
+        try:
+            conn.execute(text("ALTER TABLE fees ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(100);"))
+            conn.execute(text("ALTER TABLE fees ADD COLUMN IF NOT EXISTS verification_notes VARCHAR(255);"))
+            conn.execute(text("ALTER TABLE fees ADD COLUMN IF NOT EXISTS verified_by VARCHAR(100);"))
+            conn.execute(text("ALTER TABLE fees ADD COLUMN IF NOT EXISTS verification_date TIMESTAMP;"))
+        except Exception:
+            pass
+
         conn.commit()
 except Exception as e:
     pass
@@ -142,6 +152,8 @@ app.include_router(report_router)
 app.include_router(certificate_router)
 app.include_router(course_application_router)
 app.include_router(ai_router)
+app.include_router(suggestion_router)
+app.include_router(tax_invoice_router)
 
 # Mount Frontend Portal
 portal_dir = os.path.join(os.path.dirname(__file__), "student_website")

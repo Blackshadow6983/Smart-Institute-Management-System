@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, Date
-
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime
+from datetime import datetime
 from database.database import Base
 
 
@@ -30,11 +30,32 @@ class Fee(Base):
         String(50)
     )
 
+    # Status: Paid / Successful, Pending, Failed, Cancelled
     status = Column(
-        String(30),
-        default="Paid"
+        String(50),
+        default="Pending"
     )
 
     receipt_number = Column(
         String(100)
+    )
+
+    transaction_id = Column(
+        String(100),
+        nullable=True
+    )
+
+    verification_notes = Column(
+        String(255),
+        nullable=True
+    )
+
+    verified_by = Column(
+        String(100),
+        nullable=True
+    )
+
+    verification_date = Column(
+        DateTime,
+        nullable=True
     )

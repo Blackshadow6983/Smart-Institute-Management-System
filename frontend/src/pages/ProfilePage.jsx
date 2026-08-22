@@ -2,15 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import { User, Mail, Phone, MapPin, Calendar, BookOpen, Layers, Save, CheckCircle2, AlertCircle, Shield, QrCode, CreditCard, Award, Building } from 'lucide-react';
+import { Modal } from '../components/Modal';
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  BookOpen,
+  Layers,
+  Save,
+  CheckCircle2,
+  AlertCircle,
+  Shield,
+  QrCode,
+  CreditCard,
+  Award,
+  Building,
+  FileText,
+  Printer
+} from 'lucide-react';
 
 export function ProfilePage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [selectedInvoiceUrl, setSelectedInvoiceUrl] = useState('');
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -50,6 +72,10 @@ export function ProfilePage() {
             date_of_birth: res.student.date_of_birth || '',
             gender: res.student.gender || 'Male'
           }));
+
+          // Load student tax invoices
+          const invList = await api.getStudentInvoices(res.student.id).catch(() => []);
+          setInvoices(Array.isArray(invList) ? invList : []);
         }
       } else if (role === 'faculty' && user?.username) {
         const res = await api.getFaculty(user.username);
@@ -84,6 +110,9 @@ export function ProfilePage() {
           certificate_signatory_name: inst.certificate_signatory_name || 'Academic Director',
           certificate_logo_url: inst.certificate_logo_url || ''
         }));
+
+        const invList = await api.getInstituteInvoices().catch(() => []);
+        setInvoices(Array.isArray(invList) ? invList : []);
       }
     } catch (err) {
       setError(err.message || 'Failed to load profile record.');
@@ -149,21 +178,28 @@ export function ProfilePage() {
     }
   };
 
+  const openInvoiceViewer = (invoiceId) => {
+    const url = api.getInvoiceHtmlUrl(invoiceId);
+    setSelectedInvoiceUrl(url);
+    setIsInvoiceModalOpen(true);
+  };
+
   if (loading) {
     return <LoadingSpinner message="Retrieving institutional profile..." />;
   }
 
   const role = (user?.role || 'student').toLowerCase();
   const isAdminRole = ['admin', 'institute', 'institute_admin'].includes(role);
+  const isStudentRole = role === 'student';
 
   return (
     <div className="page-container" style={{ padding: '1.5rem', maxWidth: '1000px', margin: '0 auto' }}>
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-main)' }}>
-          {isAdminRole ? 'Institute & Profile Settings' : 'My Profile'}
+          {isAdminRole ? 'Institute & Profile Settings' : 'My Profile & Tax Invoices'}
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
-          Manage your personal information, institutional credentials, payment gateways, and certificate templates.
+          Manage your personal information, institutional credentials, payment gateways, and official Tax Invoices.
         </p>
       </div>
 
@@ -206,6 +242,60 @@ export function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* Student Tax Invoices Section */}
+        {isStudentRole && (
+          <div className="card">
+            <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <FileText size={20} color="var(--primary-color)" />
+              <h2 className="card-title">My Official Tax Invoices & Receipts</h2>
+            </div>
+            <div className="card-body">
+              {invoices.length === 0 ? (
+                <div style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                  No verified tax invoices generated yet. Once your fee payment is verified, your GST Tax Invoice will appear here.
+                </div>
+              ) : (
+                <div className="table-container">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Invoice Number</th>
+                        <th>Payment Date</th>
+                        <th>Course</th>
+                        <th>SAC Code</th>
+                        <th>Total Paid</th>
+                        <th style={{ textAlign: 'right' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.map((inv) => (
+                        <tr key={inv.id}>
+                          <td style={{ fontWeight: 700, color: 'var(--primary-blue)', fontFamily: 'monospace' }}>
+                            {inv.invoice_number}
+                          </td>
+                          <td style={{ fontSize: '0.85rem' }}>{inv.payment_date}</td>
+                          <td>{inv.course_name}</td>
+                          <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{inv.hsn_sac_code}</td>
+                          <td style={{ fontWeight: 700, color: '#10b981' }}>₹{inv.total_amount?.toLocaleString()}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              className="btn-secondary"
+                              style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                              onClick={() => openInvoiceViewer(inv.id)}
+                            >
+                              <Printer size={13} style={{ marginRight: 4 }} /> View / Download Invoice
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Edit Form */}
         <div className="card">
@@ -366,6 +456,23 @@ export function ProfilePage() {
         </div>
 
       </div>
+
+      {/* PRINTABLE TAX INVOICE MODAL */}
+      <Modal
+        isOpen={isInvoiceModalOpen}
+        onClose={() => setIsInvoiceModalOpen(false)}
+        title="Official Tax Invoice Document"
+        maxWidth="840px"
+      >
+        {selectedInvoiceUrl && (
+          <iframe
+            src={selectedInvoiceUrl}
+            style={{ width: '100%', height: '520px', border: 'none', borderRadius: '8px' }}
+            title="Tax Invoice Viewer"
+          />
+        )}
+      </Modal>
     </div>
   );
 }
+export default ProfilePage;

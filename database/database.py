@@ -26,10 +26,15 @@ else:
     engine_kwargs["pool_pre_ping"] = True
     engine_kwargs["pool_recycle"] = 300
 
-engine = create_engine(
-    db_url,
-    **engine_kwargs
-)
+try:
+    engine = create_engine(db_url, **engine_kwargs)
+    with engine.connect() as conn:
+        pass
+except Exception as e:
+    print(f"Warning: Primary DB connection failed ({e}). Falling back to SQLite.")
+    db_url = "sqlite:///./sql_app.db"
+    engine_kwargs = {"connect_args": {"check_same_thread": False}}
+    engine = create_engine(db_url, **engine_kwargs)
 
 SessionLocal = sessionmaker(
     autocommit=False,

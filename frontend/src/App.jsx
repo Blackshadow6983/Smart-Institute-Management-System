@@ -68,7 +68,7 @@ function AppRoutes() {
         <Route path="faculty" element={<FacultyRestrictedRoute><FacultyPage /></FacultyRestrictedRoute>} />
         <Route path="courses" element={<FacultyRestrictedRoute><CoursesPage /></FacultyRestrictedRoute>} />
         <Route path="course-details/:appId" element={<StudentCourseDetailsPage />} />
-        <Route path="batches" element={<FacultyRestrictedRoute><BatchesPage /></FacultyRestrictedRoute>} />
+        <Route path="batches" element={<BatchesPage />} />
         <Route path="attendance" element={<AttendancePage />} />
         <Route path="fees" element={<FacultyRestrictedRoute><FeesPage /></FacultyRestrictedRoute>} />
         <Route path="marks" element={<FacultyRestrictedRoute><MarksPage /></FacultyRestrictedRoute>} />

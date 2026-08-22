@@ -31,7 +31,6 @@ import {
 
 export function StudentsPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('approved'); // 'approved' or 'pending'
   const [students, setStudents] = useState([]);
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -43,14 +42,8 @@ export function StudentsPage() {
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
-  const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
-
-  // Approval Form
-  const [assignedEnrollmentId, setAssignedEnrollmentId] = useState('');
 
   // Form states for Admin Registration
   const [formData, setFormData] = useState({
@@ -69,9 +62,6 @@ export function StudentsPage() {
     course_fee: 25000,
     batch: ''
   });
-
-  const [feeCustomNote, setFeeCustomNote] = useState('');
-  const [feeActionLoading, setFeeActionLoading] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -139,46 +129,27 @@ export function StudentsPage() {
         batch: formData.batch || null
       });
 
-      setSuccess(res.message || `Student created! Login ID & Password sent to ${formData.email}`);
+      setSuccess(res.message || `Student ${formData.name} created successfully! Enrollment ID: ${res.registration_id || res.student?.registration_id}`);
       setIsAddModalOpen(false);
+      setFormData({
+        name: '',
+        email: '',
+        mobile: '',
+        password: 'Pass@' + Math.floor(1000 + Math.random() * 9000),
+        address: '',
+        date_of_birth: '',
+        gender: 'Male',
+        parent_name: '',
+        parent_mobile: '',
+        parent_email: '',
+        course: '',
+        course_duration: '1 Year',
+        course_fee: 25000,
+        batch: ''
+      });
       loadData();
     } catch (err) {
       setError(err.message || 'Error registering student.');
-    }
-  };
-
-  const openApproveModal = (stu) => {
-    setSelectedStudent(stu);
-    const code = user?.institute_code || stu.institute_code || 'ITE-001';
-    setAssignedEnrollmentId(`${code}-STU${Math.floor(100 + Math.random() * 900)}`);
-    setIsApproveModalOpen(true);
-  };
-
-  const handleApproveStudent = async (e) => {
-    e.preventDefault();
-    if (!selectedStudent) return;
-    setError('');
-    setSuccess('');
-    try {
-      const res = await api.approveStudent(selectedStudent.id, assignedEnrollmentId.trim());
-      setSuccess(res.message || `Approved student ${selectedStudent.name}! Enrollment No: ${assignedEnrollmentId}`);
-      setIsApproveModalOpen(false);
-      loadData();
-    } catch (err) {
-      setError(err.message || 'Failed to approve student registration.');
-    }
-  };
-
-  const handleRejectStudent = async (stu) => {
-    if (!window.confirm(`Are you sure you want to reject the registration request for ${stu.name}?`)) return;
-    setError('');
-    setSuccess('');
-    try {
-      await api.rejectStudent(stu.id, 'Denied by institute admin');
-      setSuccess(`Registration request for ${stu.name} rejected.`);
-      loadData();
-    } catch (err) {
-      setError(err.message || 'Failed to reject student request.');
     }
   };
 
@@ -234,73 +205,233 @@ export function StudentsPage() {
 
       {/* ENROLLED STUDENTS TABLE */}
       <div className="card-container">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
-              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              className="form-control"
+              style={{ paddingLeft: '36px' }}
+              placeholder="Search by student name, enrollment ID, course..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            Showing {filteredApproved.length} of {students.length} students
+          </div>
+        </div>
+
+        {loading ? (
+          <LoadingSpinner message="Loading roster..." />
+        ) : filteredApproved.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No student records found"
+            description="No registered students in this institute roster yet."
+          />
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Enrollment ID</th>
+                <th>Student Name & Email</th>
+                <th>Mobile</th>
+                <th>Enrolled Course</th>
+                <th>Duration</th>
+                <th>Fee (₹)</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredApproved.map((s) => (
+                <tr key={s.id || s.registration_id}>
+                  <td style={{ fontWeight: 700, color: 'var(--primary-blue)' }}>{s.registration_id}</td>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{s.name}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{s.email}</div>
+                  </td>
+                  <td>{s.mobile}</td>
+                  <td>
+                    <span className="badge info">{s.course || 'Unassigned'}</span>
+                  </td>
+                  <td style={{ fontSize: '0.85rem' }}>{s.course_duration || '1 Year'}</td>
+                  <td style={{ fontWeight: 700, color: '#10b981' }}>₹{(s.course_fee || 0).toLocaleString()}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button
+                      className="btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                      onClick={() => { setSelectedStudent(s); setIsViewModalOpen(true); }}
+                    >
+                      View Profile
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* REGISTER STUDENT MODAL */}
+      <Modal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="Register Student Manually"
+        maxWidth="600px"
+      >
+        <form onSubmit={handleCreateStudent}>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Full Name <span className="required">*</span></label>
               <input
                 type="text"
                 className="form-control"
-                style={{ paddingLeft: '36px' }}
-                placeholder="Search by student name, enrollment ID, course..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Student full name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
               />
             </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Showing {filteredApproved.length} of {students.length} students
+
+            <div className="form-group">
+              <label className="form-label">Email Address <span className="required">*</span></label>
+              <input
+                type="email"
+                className="form-control"
+                placeholder="student@gmail.com"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+              />
             </div>
           </div>
 
-          {loading ? (
-            <LoadingSpinner message="Loading roster..." />
-          ) : filteredApproved.length === 0 ? (
-            <EmptyState
-              icon={Users}
-              title="No student records found"
-              description="No registered students in this institute roster yet."
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Mobile Number <span className="required">*</span></label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="10-digit mobile number"
+                value={formData.mobile}
+                onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Initial Password <span className="required">*</span></label>
+              <input
+                type="text"
+                className="form-control"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Enrolled Course</label>
+              {courses.length > 0 ? (
+                <select
+                  className="form-control"
+                  value={formData.course}
+                  onChange={(e) => handleCourseSelection(e.target.value)}
+                >
+                  <option value="">Select a Course</option>
+                  {courses.map((c) => (
+                    <option key={c.id || c.course_code} value={c.name}>
+                      {c.name} ({c.course_code})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Data Science"
+                  value={formData.course}
+                  onChange={(e) => setFormData({ ...formData, course: e.target.value })}
+                />
+              )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Batch</label>
+              {batches.length > 0 ? (
+                <select
+                  className="form-control"
+                  value={formData.batch}
+                  onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
+                >
+                  <option value="">Select a Batch</option>
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.name}>
+                      {b.name} ({b.timing || 'TBD'})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Batch 2026-A"
+                  value={formData.batch}
+                  onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Course Fee (₹)</label>
+              <input
+                type="number"
+                className="form-control"
+                value={formData.course_fee}
+                onChange={(e) => setFormData({ ...formData, course_fee: e.target.value === '' ? '' : Number(e.target.value) })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Gender</label>
+              <select
+                className="form-control"
+                value={formData.gender}
+                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+              >
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Residential Address</label>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="City, State, Country"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
             />
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Enrollment ID</th>
-                  <th>Student Name & Email</th>
-                  <th>Mobile</th>
-                  <th>Enrolled Course</th>
-                  <th>Duration</th>
-                  <th>Fee (₹)</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredApproved.map((s) => (
-                  <tr key={s.id || s.registration_id}>
-                    <td style={{ fontWeight: 700, color: 'var(--primary-blue)' }}>{s.registration_id}</td>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{s.name}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{s.email}</div>
-                    </td>
-                    <td>{s.mobile}</td>
-                    <td>
-                      <span className="badge info">{s.course || 'Unassigned'}</span>
-                    </td>
-                    <td style={{ fontSize: '0.85rem' }}>{s.course_duration || '1 Year'}</td>
-                    <td style={{ fontWeight: 700, color: '#10b981' }}>₹{(s.course_fee || 0).toLocaleString()}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button
-                        className="btn-secondary"
-                        style={{ padding: '4px 10px', fontSize: '0.8rem' }}
-                        onClick={() => { setSelectedStudent(s); setIsViewModalOpen(true); }}
-                      >
-                        View Profile
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+          </div>
+
+          <div className="modal-footer" style={{ margin: '1.25rem -1.25rem -1.25rem' }}>
+            <button type="button" className="btn-secondary" onClick={() => setIsAddModalOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary">
+              Register Student
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* VIEW PROFILE MODAL */}
       <Modal

@@ -16,8 +16,19 @@ export async function apiRequest(endpoint, options = {}) {
       headers
     });
 
-    if (response.status === 401 && !endpoint.includes('/auth/login')) {
+    const isPublicEndpoint =
+      endpoint.includes('/auth/login') ||
+      endpoint.includes('/courses/public') ||
+      endpoint.includes('/auth/register') ||
+      endpoint.includes('/certificates/verify');
+
+    if (response.status === 401 && !isPublicEndpoint) {
       console.warn('Unauthorized request - session may have expired.');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user_info');
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
 
     const data = await response.json().catch(() => null);
@@ -89,16 +100,28 @@ export const api = {
   getAttendancePercentage: (studentId, course) => apiRequest(`/attendance/percentage/${studentId}${course ? `?course=${encodeURIComponent(course)}` : ''}`),
   getCourseAttendance: (courseName) => apiRequest(`/attendance/course/${encodeURIComponent(courseName)}`),
 
-  // Fees
+  // Fees & Payment Verification
   createFeePayment: (data) => apiRequest('/fees/', { method: 'POST', body: JSON.stringify(data) }),
+  submitFeePayment: (data) => apiRequest('/fees/submit-payment', { method: 'POST', body: JSON.stringify(data) }),
+  verifyFeePayment: (data) => apiRequest('/fees/verify', { method: 'POST', body: JSON.stringify(data) }),
+  getFeeVerifications: () => apiRequest('/fees/verification-list'),
   getStudentFees: (studentId) => apiRequest(`/fees/${studentId}`),
   getFeeSummary: (studentId) => apiRequest(`/fees/summary/${studentId}`),
 
-  // Assessments & Notices
+  // Tax Invoices
+  getStudentInvoices: (studentId) => apiRequest(`/invoices/student/${studentId}`),
+  getInstituteInvoices: () => apiRequest('/invoices/institute'),
+  getInvoiceDetails: (invoiceId) => apiRequest(`/invoices/${invoiceId}`),
+  getInvoiceHtmlUrl: (invoiceId) => `${API_BASE_URL || 'http://127.0.0.1:8000'}/invoices/${invoiceId}/html`,
+
+  // Assessments, Notices & Suggestions
   createAssessment: (data) => apiRequest('/assessments/', { method: 'POST', body: JSON.stringify(data) }),
   getStudentAssessments: (studentId) => apiRequest(`/assessments/${studentId}`),
   getNotices: () => apiRequest('/notices/'),
   createNotice: (data) => apiRequest('/notices/', { method: 'POST', body: JSON.stringify(data) }),
+  getSuggestions: () => apiRequest('/suggestions/'),
+  createSuggestion: (data) => apiRequest('/suggestions/', { method: 'POST', body: JSON.stringify(data) }),
+  updateSuggestionStatus: (id, data) => apiRequest(`/suggestions/${id}/status`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   // Certificates & Public Verification
   getAllCertificates: () => apiRequest('/certificates/'),
