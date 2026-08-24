@@ -33,14 +33,14 @@ export function Sidebar({ isOpen, onClose }) {
 
   const role = (user?.role || 'student').toLowerCase();
   const isAdmin = ['admin', 'institute', 'institute_admin'].includes(role);
-  const isFaculty = role === 'faculty';
+  const isFaculty = ['faculty', 'staff'].includes(role);
   const isStudent = role === 'student';
 
   const instCode = user?.institute_code || 'DEFAULT';
   const instName = user?.institute_name || 'AI SMART INSTITUTE';
 
   return (
-    <aside className={`app-sidebar ${isOpen ? 'mobile-open' : ''}`}>
+    <aside className={`app-sidebar ${isOpen ? 'mobile-open open' : ''}`}>
       <div className="sidebar-header">
         <div className="sidebar-brand-icon" style={{
           background: 'linear-gradient(135deg, var(--primary-navy, #0f172a), var(--primary-blue, #2563eb))',

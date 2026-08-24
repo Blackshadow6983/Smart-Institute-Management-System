@@ -58,7 +58,7 @@ export function AttendancePage() {
             percentage: attRes.attendance_percentage || 0
           });
         }
-      } else if (['admin', 'faculty', 'institute', 'institute_admin'].includes(role)) {
+      } else if (['admin', 'faculty', 'staff', 'institute', 'institute_admin'].includes(role)) {
         const stuList = await api.getAllStudents().catch(() => []);
         const list = Array.isArray(stuList) ? stuList : [];
         setStudents(list);
@@ -134,7 +134,7 @@ export function AttendancePage() {
   };
 
   const role = (user?.role || 'student').toLowerCase();
-  const isAdminOrStaff = ['admin', 'faculty', 'institute', 'institute_admin'].includes(role);
+  const isAdminOrStaff = ['admin', 'faculty', 'staff', 'institute', 'institute_admin'].includes(role);
 
   return (
     <div>

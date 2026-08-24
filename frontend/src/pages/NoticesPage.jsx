@@ -27,7 +27,7 @@ export function NoticesPage() {
   const { user } = useAuth();
   const role = (user?.role || 'student').toLowerCase();
   const isAdmin = ['admin', 'institute', 'institute_admin'].includes(role);
-  const canPostNotice = isAdmin || role === 'faculty';
+  const canPostNotice = ['admin', 'institute', 'institute_admin', 'faculty', 'staff'].includes(role);
 
   // Active Tab: 'notices' or 'suggestions'
   const [activeTab, setActiveTab] = useState('notices');

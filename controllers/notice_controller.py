@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -20,7 +20,7 @@ class NoticeRequest(BaseModel):
 
 # =========================================================
 # CREATE NOTICE
-# ADMIN + FACULTY
+# ADMIN + STAFF + FACULTY
 # =========================================================
 
 @router.post("/")
@@ -30,10 +30,10 @@ def create_notice(
     current_user: dict = Depends(get_current_user)
 ):
     role = current_user["role"].lower()
-    if role not in ["admin", "institute", "institute_admin"]:
+    if role not in ["admin", "institute", "institute_admin", "staff", "faculty"]:
         raise HTTPException(
             status_code=403,
-            detail="Only Institute Admins can create notices"
+            detail="Only Institute Admins, Staff, and Faculty can create notices"
         )
 
     inst_code = current_user.get("institute_code")
@@ -71,12 +71,6 @@ def get_notices(
     current_user: dict = Depends(get_current_user)
 ):
     role = current_user.get("role", "").lower()
-    if role == "faculty":
-        raise HTTPException(
-            status_code=403,
-            detail="Faculty access is restricted to student attendance only."
-        )
-
     inst_code = current_user.get("institute_code")
 
     if role == "student" and not inst_code:

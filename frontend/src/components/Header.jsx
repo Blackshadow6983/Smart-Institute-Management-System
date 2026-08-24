@@ -8,8 +8,8 @@ export function Header({ title, onToggleSidebar }) {
   return (
     <header className="app-header">
       <div className="header-left">
-        <button className="mobile-menu-btn" onClick={onToggleSidebar} aria-label="Toggle navigation menu">
-          <Menu size={18} />
+        <button className="mobile-menu-btn" onClick={onToggleSidebar} aria-label="Toggle navigation menu" type="button">
+          <Menu size={22} />
         </button>
         <h1 className="page-title">{title}</h1>
       </div>

@@ -43,10 +43,10 @@ def create_batch(
     current_user: dict = Depends(get_current_user)
 ):
     role = current_user["role"].lower()
-    if role not in ["admin", "institute", "institute_admin"]:
+    if role not in ["admin", "institute", "institute_admin", "staff", "faculty"]:
         raise HTTPException(
             status_code=403,
-            detail="Only Institute Admins can create batches"
+            detail="Only Admins, Staff, and Faculty can create batches"
         )
 
     inst_code = current_user.get("institute_code")
@@ -133,10 +133,10 @@ def update_batch(
 ):
     role = current_user["role"].lower()
 
-    if role not in ["admin", "institute", "institute_admin"]:
+    if role not in ["admin", "institute", "institute_admin", "staff", "faculty"]:
         raise HTTPException(
             status_code=403,
-            detail="Only Institute Admins can update batches"
+            detail="Only Admins, Staff, and Faculty can update batches"
         )
 
     batch = (

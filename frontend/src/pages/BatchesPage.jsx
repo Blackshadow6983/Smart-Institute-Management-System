@@ -9,7 +9,7 @@ import { Layers, Plus, Edit, CheckCircle2, AlertCircle, Clock, GraduationCap, Bo
 export function BatchesPage() {
   const { user } = useAuth();
   const role = (user?.role || '').toLowerCase();
-  const canManage = ['admin', 'institute', 'institute_admin', 'faculty'].includes(role);
+  const canManage = ['admin', 'institute', 'institute_admin', 'faculty', 'staff'].includes(role);
 
   const [batches, setBatches] = useState([]);
   const [courses, setCourses] = useState([]);

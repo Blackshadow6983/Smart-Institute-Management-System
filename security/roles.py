@@ -30,10 +30,11 @@ def require_student(
 def require_faculty(
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["role"] != "faculty":
+    role = current_user.get("role", "").lower()
+    if role not in ["faculty", "staff", "admin", "institute", "institute_admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Faculty access required"
+            detail="Faculty or Staff access required"
         )
 
     return current_user
