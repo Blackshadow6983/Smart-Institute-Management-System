@@ -21,8 +21,11 @@ import { CourseApplicationsPage } from './pages/CourseApplicationsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
 import { StudentCourseDetailsPage } from './pages/StudentCourseDetailsPage';
+import { StudyMaterialsPage } from './pages/StudyMaterialsPage';
+
 
 function ProtectedRoute({ children }) {
+
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -30,10 +33,21 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-function FacultyRestrictedRoute({ children }) {
+function AdminOnlyRoute({ children }) {
   const { user } = useAuth();
-  const role = (user?.role || '').toLowerCase();
-  if (role === 'faculty') {
+  const role = (user?.role || '').trim().toLowerCase();
+  const isAdmin = ['admin', 'institute', 'institute_admin'].includes(role);
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
+function StaffRestrictedRoute({ children }) {
+  const { user } = useAuth();
+  const role = (user?.role || '').trim().toLowerCase();
+  const isStaff = ['faculty', 'staff'].includes(role);
+  if (isStaff) {
     return <Navigate to="/attendance" replace />;
   }
   return children;
@@ -58,24 +72,27 @@ function AppRoutes() {
         path="/"
         element={
           <ProtectedRoute>
-            <Layout pageTitle="Student & Institutional Portal" />
+            <Layout pageTitle="Student & University Portal" />
           </ProtectedRoute>
         }
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="students" element={<FacultyRestrictedRoute><StudentsPage /></FacultyRestrictedRoute>} />
-        <Route path="faculty" element={<FacultyRestrictedRoute><FacultyPage /></FacultyRestrictedRoute>} />
-        <Route path="courses" element={<FacultyRestrictedRoute><CoursesPage /></FacultyRestrictedRoute>} />
+        <Route path="students" element={<AdminOnlyRoute><StudentsPage /></AdminOnlyRoute>} />
+        <Route path="faculty" element={<AdminOnlyRoute><FacultyPage /></AdminOnlyRoute>} />
+        <Route path="courses" element={<StaffRestrictedRoute><CoursesPage /></StaffRestrictedRoute>} />
         <Route path="course-details/:appId" element={<StudentCourseDetailsPage />} />
         <Route path="batches" element={<BatchesPage />} />
         <Route path="attendance" element={<AttendancePage />} />
-        <Route path="fees" element={<FacultyRestrictedRoute><FeesPage /></FacultyRestrictedRoute>} />
-        <Route path="marks" element={<FacultyRestrictedRoute><MarksPage /></FacultyRestrictedRoute>} />
+        <Route path="fees" element={<StaffRestrictedRoute><FeesPage /></StaffRestrictedRoute>} />
+        <Route path="marks" element={<StaffRestrictedRoute><MarksPage /></StaffRestrictedRoute>} />
+        <Route path="study-materials" element={<StudyMaterialsPage />} />
         <Route path="notices" element={<NoticesPage />} />
-        <Route path="reports" element={<FacultyRestrictedRoute><ReportsPage /></FacultyRestrictedRoute>} />
-        <Route path="certificates" element={<FacultyRestrictedRoute><CertificatesPage /></FacultyRestrictedRoute>} />
-        <Route path="applications" element={<FacultyRestrictedRoute><CourseApplicationsPage /></FacultyRestrictedRoute>} />
+
+        <Route path="reports" element={<AdminOnlyRoute><ReportsPage /></AdminOnlyRoute>} />
+        <Route path="certificates" element={<StaffRestrictedRoute><CertificatesPage /></StaffRestrictedRoute>} />
+        <Route path="applications" element={<AdminOnlyRoute><CourseApplicationsPage /></AdminOnlyRoute>} />
+
         <Route path="profile" element={<ProfilePage />} />
         <Route path="change-password" element={<ChangePasswordPage />} />
       </Route>
@@ -84,6 +101,7 @@ function AppRoutes() {
     </Routes>
   );
 }
+
 
 
 export function App() {

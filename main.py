@@ -83,6 +83,11 @@ migrations = [
     "ALTER TABLE notices ADD COLUMN institute_code VARCHAR(50);",
     "ALTER TABLE fees ADD COLUMN institute_code VARCHAR(50);",
     "ALTER TABLE institutes ADD COLUMN payment_upi_id VARCHAR(100);",
+    "ALTER TABLE institutes ADD COLUMN payment_upi_number VARCHAR(50);",
+    "ALTER TABLE institutes ADD COLUMN payment_account_holder VARCHAR(150);",
+    "ALTER TABLE institutes ADD COLUMN payment_bank_name VARCHAR(150);",
+    "ALTER TABLE institutes ADD COLUMN payment_account_number VARCHAR(100);",
+    "ALTER TABLE institutes ADD COLUMN payment_ifsc_code VARCHAR(50);",
     "ALTER TABLE institutes ADD COLUMN payment_qr_code_url VARCHAR(500);",
     "ALTER TABLE institutes ADD COLUMN payment_bank_details VARCHAR(500);",
     "ALTER TABLE institutes ADD COLUMN payment_instructions VARCHAR(500);",
@@ -90,6 +95,7 @@ migrations = [
     "ALTER TABLE institutes ADD COLUMN certificate_signatory_name VARCHAR(100);",
     "ALTER TABLE institutes ADD COLUMN certificate_logo_url VARCHAR(500);",
 ]
+
 
 for m in migrations:
     try:
@@ -137,6 +143,10 @@ def health():
     }
 
 
+from controllers.study_material_controller import (
+    router as study_material_router
+)
+
 # Routes
 app.include_router(auth_router)
 app.include_router(institute_router)
@@ -155,8 +165,24 @@ app.include_router(course_application_router)
 app.include_router(ai_router)
 app.include_router(suggestion_router)
 app.include_router(tax_invoice_router)
+app.include_router(study_material_router)
+
+
+# Create uploads directories if not existing
+uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+qr_dir = os.path.join(uploads_dir, "payment_qr")
+sm_dir = os.path.join(uploads_dir, "study_materials")
+os.makedirs(qr_dir, exist_ok=True)
+os.makedirs(sm_dir, exist_ok=True)
+
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # Mount Frontend Portal
 portal_dir = os.path.join(os.path.dirname(__file__), "student_website")
 if os.path.exists(portal_dir):
     app.mount("/portal", StaticFiles(directory=portal_dir, html=True), name="portal")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

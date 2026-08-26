@@ -5,7 +5,14 @@ from sqlalchemy.orm import Session
 from datetime import date
 
 from database.database import get_db
-from security.auth import get_current_user, require_admin
+from security.auth import (
+    get_current_user,
+    require_admin,
+    is_admin_role,
+    is_staff_role,
+    is_student_role,
+    normalize_role
+)
 
 from models.student import Student
 from models.course import Course
@@ -237,17 +244,17 @@ def list_certificates(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    role = current_user["role"].lower()
+    role = normalize_role(current_user.get("role"))
 
-    if role == "faculty":
+    if is_staff_role(role):
         raise HTTPException(
             status_code=403,
-            detail="Faculty access is restricted to student attendance only."
+            detail="Staff/Faculty access is restricted. Certificates are managed by Institute Admins."
         )
 
     inst_code = current_user.get("institute_code")
 
-    if role == "student":
+    if is_student_role(role):
         student = db.query(Student).filter(Student.registration_id == current_user["username"]).first()
         if not student:
             return []
@@ -266,7 +273,7 @@ def list_certificates(
             }
             for c in certs
         ]
-    else:
+    elif is_admin_role(role):
         certs = db.query(Certificate).all()
         result = []
         for c in certs:
@@ -285,6 +292,9 @@ def list_certificates(
                 "status": c.status
             })
         return result
+    else:
+        raise HTTPException(status_code=403, detail="Access denied")
+
 
 
 

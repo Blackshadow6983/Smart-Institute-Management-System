@@ -168,7 +168,7 @@ export function ProfilePage() {
           certificate_signatory_name: formData.certificate_signatory_name,
           certificate_logo_url: formData.certificate_logo_url
         });
-        setSuccess('Institute settings, payment configuration & certificate details updated successfully!');
+        setSuccess('University settings, payment configuration & certificate details updated successfully!');
       }
       loadProfile();
     } catch (err) {
@@ -185,7 +185,7 @@ export function ProfilePage() {
   };
 
   if (loading) {
-    return <LoadingSpinner message="Retrieving institutional profile..." />;
+    return <LoadingSpinner message="Retrieving university profile..." />;
   }
 
   const role = (user?.role || 'student').toLowerCase();
@@ -196,10 +196,10 @@ export function ProfilePage() {
     <div className="page-container" style={{ padding: '1.5rem', maxWidth: '1000px', margin: '0 auto' }}>
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-main)' }}>
-          {isAdminRole ? 'Institute & Profile Settings' : 'My Profile & Tax Invoices'}
+          {isAdminRole ? 'University & Profile Settings' : 'My Profile & Tax Invoices'}
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
-          Manage your personal information, institutional credentials, payment gateways, and official Tax Invoices.
+          Manage your personal information, university credentials, payment gateways, and official Tax Invoices.
         </p>
       </div>
 
@@ -228,7 +228,7 @@ export function ProfilePage() {
           <div className="card-body">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Institute Code</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>University Code</span>
                 <p style={{ fontWeight: 600, color: 'var(--primary-color)' }}>{profile?.institute_code || user?.institute_code || 'N/A'}</p>
               </div>
               <div>
@@ -301,13 +301,13 @@ export function ProfilePage() {
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">
-              {isAdminRole ? 'Configure Institute & Payment Settings' : 'Edit Personal Profile'}
+              {isAdminRole ? 'Configure University & Payment Settings' : 'Edit Personal Profile'}
             </h2>
           </div>
           <div className="card-body">
             <form onSubmit={handleSave}>
               <div className="form-group">
-                <label className="form-label">{isAdminRole ? 'Institute / Organization Name' : 'Full Name'} <span className="required">*</span></label>
+                <label className="form-label">{isAdminRole ? 'University / Organization Name' : 'Full Name'} <span className="required">*</span></label>
                 <input
                   type="text"
                   className="form-control"
@@ -350,14 +350,14 @@ export function ProfilePage() {
                 />
               </div>
 
-              {/* Institute Payment Details Section for Admin */}
+              {/* University Payment Details Section for Admin */}
               {isAdminRole && (
                 <>
                   <div style={{ borderTop: '1px solid var(--border-color)', margin: '1.5rem 0 1rem 0', paddingTop: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                       <QrCode size={18} color="var(--primary-color)" />
                       <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)', margin: 0 }}>
-                        Institute Payment Gateway Settings (UPI & QR Code)
+                        University Payment Gateway Settings (UPI & QR Code)
                       </h3>
                     </div>
                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '1rem' }}>
@@ -367,11 +367,11 @@ export function ProfilePage() {
 
                   <div className="form-row">
                     <div className="form-group">
-                      <label className="form-label">Institute UPI ID (e.g. yourname@upi or institute@okaxis)</label>
+                      <label className="form-label">University UPI ID (e.g. yourname@upi or university@okaxis)</label>
                       <input
                         type="text"
                         className="form-control"
-                        placeholder="e.g. institute@upi"
+                        placeholder="e.g. university@upi"
                         value={formData.payment_upi_id}
                         onChange={(e) => setFormData({ ...formData, payment_upi_id: e.target.value })}
                       />
@@ -404,7 +404,7 @@ export function ProfilePage() {
                     <textarea
                       className="form-control"
                       rows={2}
-                      placeholder="e.g., Scan QR or transfer via UPI ID. Share receipt or UTR transaction ID with Institute Admin."
+                      placeholder="e.g., Scan QR or transfer via UPI ID. Share receipt or UTR transaction ID with University Admin."
                       value={formData.payment_instructions}
                       onChange={(e) => setFormData({ ...formData, payment_instructions: e.target.value })}
                     />

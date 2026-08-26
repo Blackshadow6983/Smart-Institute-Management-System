@@ -15,3 +15,4 @@ from .fees import Fee
 from .notice import Notice
 from .suggestion import Suggestion
 from .tax_invoice import TaxInvoice
+from .study_material import StudyMaterial

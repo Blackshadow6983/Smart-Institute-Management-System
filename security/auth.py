@@ -5,6 +5,32 @@ from jose import JWTError, jwt
 from config import SECRET_KEY, ALGORITHM
 
 
+ADMIN_ROLES = {"admin", "institute", "institute_admin"}
+STAFF_ROLES = {"faculty", "staff"}
+ATTENDANCE_ROLES = ADMIN_ROLES | STAFF_ROLES
+STUDENT_ROLES = {"student"}
+
+
+def normalize_role(role: str | None) -> str:
+    return (role or "").strip().lower()
+
+
+def is_admin_role(role: str | None) -> bool:
+    return normalize_role(role) in ADMIN_ROLES
+
+
+def is_staff_role(role: str | None) -> bool:
+    return normalize_role(role) in STAFF_ROLES
+
+
+def can_manage_attendance_role(role: str | None) -> bool:
+    return normalize_role(role) in ATTENDANCE_ROLES
+
+
+def is_student_role(role: str | None) -> bool:
+    return normalize_role(role) in STUDENT_ROLES
+
+
 # =========================================================
 # HTTP BEARER SECURITY
 # =========================================================
@@ -55,14 +81,13 @@ def get_current_user(
 
 
 # =========================================================
-# ADMIN / INSTITUTE AUTHORIZATION
+# AUTHORIZATION DEPENDENCIES
 # =========================================================
 
 def require_admin(
     current_user: dict = Depends(get_current_user)
 ):
-    role = current_user["role"].lower()
-    if role not in ["admin", "institute", "institute_admin"]:
+    if not is_admin_role(current_user.get("role")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Institute Admin access required"
@@ -71,15 +96,10 @@ def require_admin(
     return current_user
 
 
-# =========================================================
-# FACULTY AUTHORIZATION
-# =========================================================
-
-def require_faculty(
+def require_attendance_permission(
     current_user: dict = Depends(get_current_user)
 ):
-    role = current_user["role"].lower()
-    if role not in ["faculty", "staff", "admin", "institute", "institute_admin"]:
+    if not can_manage_attendance_role(current_user.get("role")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Faculty, Staff or Admin access required"
@@ -88,14 +108,14 @@ def require_faculty(
     return current_user
 
 
-# =========================================================
-# STUDENT AUTHORIZATION
-# =========================================================
+# Alias for backward compatibility
+require_faculty = require_attendance_permission
+
 
 def require_student(
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["role"].lower() != "student":
+    if not is_student_role(current_user.get("role")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Student access required"

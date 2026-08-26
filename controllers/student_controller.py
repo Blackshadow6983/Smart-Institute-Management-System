@@ -6,7 +6,7 @@ from database.database import get_db
 from models.student import Student
 from models.institute import Institute
 from services.registration_service import register_student
-from security.auth import get_current_user, require_admin
+from security.auth import get_current_user, require_admin, require_attendance_permission, is_admin_role
 
 
 router = APIRouter(
@@ -132,29 +132,18 @@ def register_new_student(
 
 
 # =========================================================
-# GET ALL STUDENTS (Multi-Tenant Institute Filtered)
+# GET ALL STUDENTS (ADMIN ONLY - Full Management)
 # =========================================================
 
 @router.get("/")
 def get_all_students(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_admin)
 ):
-    role = current_user["role"].lower()
-    if role == "faculty":
-        raise HTTPException(
-            status_code=403,
-            detail="Faculty access is restricted to student attendance only."
-        )
-
     inst_code = current_user.get("institute_code")
     query = db.query(Student)
 
-    if role == "student":
-        # Student sees only themselves
-        query = query.filter(Student.registration_id == current_user["username"])
-    elif inst_code:
-        # Institute admin sees only students of their institute
+    if inst_code:
         query = query.filter(Student.institute_code == inst_code)
 
     students = query.order_by(Student.id.desc()).all()
@@ -179,6 +168,35 @@ def get_all_students(
         }
         for s in students
     ]
+
+
+# =========================================================
+# GET ATTENDANCE STUDENT ROSTER (ADMIN + STAFF)
+# =========================================================
+
+@router.get("/attendance-roster")
+def get_attendance_roster(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_attendance_permission)
+):
+    inst_code = current_user.get("institute_code")
+    query = db.query(Student)
+
+    if inst_code:
+        query = query.filter(Student.institute_code == inst_code)
+
+    students = query.order_by(Student.name.asc()).all()
+    return [
+        {
+            "id": s.id,
+            "registration_id": s.registration_id,
+            "name": s.name,
+            "course": s.course,
+            "batch": s.batch
+        }
+        for s in students
+    ]
+
 
 
 

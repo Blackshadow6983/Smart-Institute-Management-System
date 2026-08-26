@@ -188,10 +188,10 @@ export function StudentsPage() {
           <div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: '#ffffff' }}>
               <Users size={28} color="#60a5fa" />
-              Institute Student Directory
+              University Student Directory
             </h1>
             <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '4px 0 0' }}>
-              Institute Code: <strong>{user?.institute_code || 'ITE-001'}</strong> • Registered & Active Student Roster ({students.length} Learners)
+              University Code: <strong>{user?.institute_code || 'ITE-001'}</strong> • Registered & Active Student Roster ({students.length} Learners)
             </p>
           </div>
 
@@ -228,7 +228,7 @@ export function StudentsPage() {
           <EmptyState
             icon={Users}
             title="No student records found"
-            description="No registered students in this institute roster yet."
+            description="No registered students in this university roster yet."
           />
         ) : (
           <table className="data-table">
@@ -446,7 +446,7 @@ export function StudentsPage() {
             <div><strong>Name:</strong> {selectedStudent.name}</div>
             <div><strong>Email:</strong> {selectedStudent.email}</div>
             <div><strong>Mobile:</strong> {selectedStudent.mobile}</div>
-            <div><strong>Institute Code:</strong> {selectedStudent.institute_code}</div>
+            <div><strong>University Code:</strong> {selectedStudent.institute_code}</div>
             <div><strong>Enrolled Course:</strong> {selectedStudent.course || 'Unassigned'}</div>
             <div><strong>Course Duration:</strong> {selectedStudent.course_duration || '1 Year'}</div>
             <div><strong>Course Fee:</strong> ₹{(selectedStudent.course_fee || 0).toLocaleString()}</div>

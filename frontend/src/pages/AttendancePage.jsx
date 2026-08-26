@@ -43,7 +43,15 @@ export function AttendancePage() {
     try {
       const role = (user?.role || '').toLowerCase();
       const courseList = await api.getAllCourses().catch(() => []);
-      setCourses(Array.isArray(courseList) ? courseList : []);
+      let finalCourses = Array.isArray(courseList) ? courseList : [];
+      if (finalCourses.length === 0) {
+        const pubCourses = await api.getPublicCourses().catch(() => []);
+        if (Array.isArray(pubCourses) && pubCourses.length > 0) {
+          finalCourses = pubCourses;
+        }
+      }
+      setCourses(finalCourses);
+
 
       if (role === 'student' && user?.username) {
         const prof = await api.getStudent(user.username);
@@ -59,9 +67,10 @@ export function AttendancePage() {
           });
         }
       } else if (['admin', 'faculty', 'staff', 'institute', 'institute_admin'].includes(role)) {
-        const stuList = await api.getAllStudents().catch(() => []);
+        const stuList = await api.getAttendanceStudentRoster().catch(() => []);
         const list = Array.isArray(stuList) ? stuList : [];
         setStudents(list);
+
         
         if (selectedStudentId || list.length > 0) {
           const sId = selectedStudentId || list[0].id;
@@ -169,11 +178,12 @@ export function AttendancePage() {
             <button
               className="btn-primary"
               onClick={() => {
+                const defaultCourse = selectedCourseName || courses[0]?.name || courses[0]?.title || '';
                 setMarkForm({
                   student_id: selectedStudentId || (students[0]?.id || ''),
                   date: new Date().toISOString().split('T')[0],
                   status: true,
-                  course: selectedCourseName || (courses[0]?.name || '')
+                  course: defaultCourse
                 });
                 setIsMarkModalOpen(true);
               }}
@@ -193,13 +203,13 @@ export function AttendancePage() {
         </div>
         <select
           className="form-control"
-          style={{ width: 'auto', minWidth: '220px' }}
+          style={{ width: 'auto', minWidth: '200px' }}
           value={selectedCourseName}
           onChange={(e) => setSelectedCourseName(e.target.value)}
         >
           <option value="">All Enrolled Courses</option>
-          {courses.map(c => (
-            <option key={c.id} value={c.name}>{c.course_code} - {c.name}</option>
+          {courses.map((c) => (
+            <option key={c.id} value={c.name || c.title}>{c.name || c.title}</option>
           ))}
         </select>
 
@@ -341,8 +351,9 @@ export function AttendancePage() {
             >
               <option value="">Select Course</option>
               {courses.map(c => (
-                <option key={c.id} value={c.name}>{c.name}</option>
+                <option key={c.id} value={c.name || c.title}>{c.name || c.title}</option>
               ))}
+
             </select>
           </div>
 

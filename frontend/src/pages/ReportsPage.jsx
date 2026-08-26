@@ -127,13 +127,13 @@ export function ReportsPage() {
             />
           ) : (
             <div style={{ background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '1.75rem' }}>
-              {/* Institutional Header */}
+              {/* University Header */}
               <div style={{ textAlign: 'center', borderBottom: '2px solid var(--primary-navy)', paddingBottom: '1.25rem', marginBottom: '1.5rem' }}>
                 <h1 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary-navy)', letterSpacing: '-0.3px' }}>
-                  AI SMART INSTITUTE OF TECHNOLOGY & MANAGEMENT
+                  AI SMART UNIVERSITY OF TECHNOLOGY & MANAGEMENT
                 </h1>
                 <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                  Official Consolidated Academic Transcript & Institutional Progress Dossier
+                  Official Consolidated Academic Transcript & University Progress Dossier
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
                   Generated on: {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}

@@ -163,13 +163,7 @@ def get_all_courses(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    role = current_user.get("role", "").lower()
-    if role == "faculty":
-        raise HTTPException(
-            status_code=403,
-            detail="Faculty access is restricted to student attendance only."
-        )
-
+    role = (current_user.get("role") or "").lower()
     inst_code = current_user.get("institute_code")
 
     # If student role, find student's institute code if not in token
@@ -178,6 +172,7 @@ def get_all_courses(
         stu = db.query(Student).filter(Student.registration_id == current_user["username"]).first()
         if stu:
             inst_code = stu.institute_code
+
 
     query = db.query(Course)
     if inst_code:

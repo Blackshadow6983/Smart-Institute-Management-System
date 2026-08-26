@@ -57,11 +57,12 @@ export function CertificatesPage() {
   useEffect(() => {
     async function init() {
       await loadCertificates();
-      const role = (user?.role || '').toLowerCase();
-      if (['admin', 'faculty', 'institute', 'institute_admin'].includes(role)) {
+      const role = (user?.role || '').trim().toLowerCase();
+      if (['admin', 'institute', 'institute_admin'].includes(role)) {
         const stuList = await api.getAllStudents().catch(() => []);
         setStudents(Array.isArray(stuList) ? stuList : []);
       }
+
     }
     init();
   }, [user]);

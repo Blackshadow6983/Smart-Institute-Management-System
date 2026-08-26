@@ -421,7 +421,7 @@ export function StudentCourseDetailsPage() {
               </div>
             </div>
 
-            {/* Institute QR & UPI Instructions Box */}
+            {/* University QR & UPI Instructions Box */}
             <div style={{
               background: '#f8fafc',
               border: '1px solid #cbd5e1',
@@ -430,22 +430,22 @@ export function StudentCourseDetailsPage() {
             }}>
               <h4 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <CreditCard size={18} color="#2563eb" />
-                Institute Payment Details
+                University Payment Details
               </h4>
               <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '1rem' }}>
                 Scan QR or use UPI ID below to pay course fees. Admin will verify and mark your payment status as Paid.
               </p>
 
               <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
-                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>INSTITUTE UPI ID</div>
+                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>UNIVERSITY UPI ID</div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#2563eb', marginTop: '2px' }}>
-                  {student?.institute_code ? `${student.institute_code.toLowerCase()}@upi` : 'institute@upi'}
+                  {student?.institute_code ? `${student.institute_code.toLowerCase()}@upi` : 'university@upi'}
                 </div>
               </div>
 
               {enrollment.payment_status !== 'Paid' && (
                 <div style={{ padding: '0.75rem', background: '#fef3c7', borderRadius: '8px', border: '1px solid #fde68a', color: '#92400e', fontSize: '12px' }}>
-                  <strong>Fee Verification Pending:</strong> Once paid, contact your Institute Admin to approve your fee status.
+                  <strong>Fee Verification Pending:</strong> Once paid, contact your University Admin to approve your fee status.
                 </div>
               )}
             </div>
@@ -474,7 +474,7 @@ export function StudentCourseDetailsPage() {
               </div>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ef4444' }}>Payment Verification Required</h2>
               <p style={{ color: 'var(--text-muted)', maxWidth: '540px', margin: '0.5rem auto 1.5rem', fontSize: '14px' }}>
-                Fee payment is currently <strong>Pending Admin Verification</strong>. The completion certificate is locked until your payment status is marked <strong>Paid</strong> by the Institute Admin.
+                Fee payment is currently <strong>Pending Admin Verification</strong>. The completion certificate is locked until your payment status is marked <strong>Paid</strong> by the University Admin.
               </p>
             </div>
           ) : isCompleted ? (

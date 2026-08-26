@@ -127,10 +127,16 @@ export function Sidebar({ isOpen, onClose }) {
           </NavLink>
         )}
 
+        <NavLink to="/study-materials" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+          <FileText size={18} />
+          <span>Study Materials</span>
+        </NavLink>
+
         <NavLink to="/batches" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
           <Layers size={18} />
           <span>Batches & Schedule</span>
         </NavLink>
+
 
         <NavLink to="/notices" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
           <Bell size={18} />

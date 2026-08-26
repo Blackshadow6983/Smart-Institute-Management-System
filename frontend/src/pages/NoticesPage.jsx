@@ -210,7 +210,7 @@ export function NoticesPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <h2 className="card-title" style={{ margin: 0 }}>
               <Bell size={20} color="var(--primary-blue)" />
-              Institute Communication & Feedback Portal
+              University Communication & Feedback Portal
             </h2>
 
             <div style={{ display: 'flex', gap: '0.5rem' }}>

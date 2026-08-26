@@ -52,6 +52,14 @@ export function DashboardPage() {
     paymentHistory: []
   });
 
+  // Staff Data
+  const [staffData, setStaffData] = useState({
+    profile: null,
+    totalStudents: 0,
+    totalBatches: 0,
+    recentNotices: []
+  });
+
   const [selectedStudentForFee, setSelectedStudentForFee] = useState(null);
   const [feeCustomNote, setFeeCustomNote] = useState('');
   const [feeActionLoading, setFeeActionLoading] = useState(false);
@@ -60,7 +68,7 @@ export function DashboardPage() {
   const loadDashboard = async () => {
     setLoading(true);
     try {
-      const role = (user?.role || '').toLowerCase();
+      const role = (user?.role || '').trim().toLowerCase();
 
       if (['admin', 'institute', 'institute_admin'].includes(role)) {
         // Fetch all data for admin
@@ -96,6 +104,26 @@ export function DashboardPage() {
           pendingApprovalsCount: pending.length,
           recentApplications: apps.slice(0, 8)
         });
+      } else if (['faculty', 'staff'].includes(role)) {
+        const username = user?.username;
+        const [facRes, rosterRes, batchesRes, noticesRes] = await Promise.allSettled([
+          api.getFaculty(username),
+          api.getAttendanceStudentRoster(),
+          api.getAllBatches(),
+          api.getNotices()
+        ]);
+
+        const profile = facRes.status === 'fulfilled' ? facRes.value.faculty : null;
+        const roster = rosterRes.status === 'fulfilled' ? rosterRes.value : [];
+        const batches = batchesRes.status === 'fulfilled' ? batchesRes.value : [];
+        const notices = noticesRes.status === 'fulfilled' ? noticesRes.value : [];
+
+        setStaffData({
+          profile,
+          totalStudents: Array.isArray(roster) ? roster.length : 0,
+          totalBatches: Array.isArray(batches) ? batches.length : 0,
+          recentNotices: Array.isArray(notices) ? notices.slice(0, 5) : []
+        });
       } else if (role === 'student') {
         const username = user?.username;
         const [profileRes, myAppsRes] = await Promise.allSettled([
@@ -125,6 +153,7 @@ export function DashboardPage() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     loadDashboard();
@@ -159,8 +188,9 @@ export function DashboardPage() {
     return <LoadingSpinner message="Connecting to academic management environment..." />;
   }
 
-  const role = (user?.role || 'student').toLowerCase();
+  const role = (user?.role || 'student').trim().toLowerCase();
   const isAdmin = ['admin', 'institute', 'institute_admin'].includes(role);
+  const isStaff = ['faculty', 'staff'].includes(role);
 
   return (
     <div>
@@ -170,6 +200,7 @@ export function DashboardPage() {
       {isAdmin ? (
         <>
           {/* Admin Banner */}
+
           <div className="card" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: '16px' }}>
             <div className="card-body" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem', padding: '1.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -189,7 +220,7 @@ export function DashboardPage() {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#ffffff', margin: 0 }}>
-                      Institute Control Center
+                      University Control Center
                     </h1>
                     <span style={{
                       background: 'rgba(37,99,235,0.3)',
@@ -366,11 +397,140 @@ export function DashboardPage() {
             )}
           </div>
         </>
+      ) : isStaff ? (
+        /* ========================================================================= */
+        /* STAFF / FACULTY DASHBOARD */
+        /* ========================================================================= */
+        <>
+          {/* Staff Header Banner */}
+          <div className="card" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: '16px', padding: '1.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <span className="badge" style={{ background: 'rgba(37,99,235,0.3)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)' }}>
+                    STAFF PORTAL
+                  </span>
+                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>
+                    {staffData.profile?.employee_id || user?.username}
+                  </span>
+                </div>
+                <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                  Welcome back, {staffData.profile?.name || user?.username}!
+                </h1>
+                <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: '4px 0 0' }}>
+                  {staffData.profile?.department || 'Academic Department'} • {staffData.profile?.specialization || 'Faculty Staff'} • {staffData.profile?.email || ''}
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <Link to="/attendance" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '10px 18px' }}>
+                  <CalendarCheck size={16} /> Mark & Update Attendance
+                </Link>
+                <Link to="/batches" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '10px 18px', background: 'rgba(255,255,255,0.1)', color: '#ffffff', border: 'none' }}>
+                  <Layers size={16} /> Batches & Schedule
+                </Link>
+                <Link to="/notices" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '10px 18px', background: 'rgba(255,255,255,0.1)', color: '#ffffff', border: 'none' }}>
+                  <Bell size={16} /> Notices
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Staff KPI Grid */}
+          <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginBottom: '1.5rem', gap: '1rem' }}>
+            <div className="kpi-card">
+              <div className="kpi-icon-wrap">
+                <GraduationCap size={22} />
+              </div>
+              <div className="kpi-info">
+                <div className="kpi-label">Department</div>
+                <div className="kpi-value" style={{ fontSize: '1.2rem' }}>{staffData.profile?.department || 'Academic'}</div>
+                <div className="kpi-subtext">{staffData.profile?.specialization || 'General Faculty'}</div>
+              </div>
+            </div>
+
+            <div className="kpi-card">
+              <div className="kpi-icon-wrap info">
+                <Users size={22} />
+              </div>
+              <div className="kpi-info">
+                <div className="kpi-label">Roster Students</div>
+                <div className="kpi-value" style={{ color: '#2563eb' }}>{staffData.totalStudents}</div>
+                <div className="kpi-subtext">Registered learners</div>
+              </div>
+            </div>
+
+            <div className="kpi-card">
+              <div className="kpi-icon-wrap success">
+                <Layers size={22} />
+              </div>
+              <div className="kpi-info">
+                <div className="kpi-label">Batches & Schedule</div>
+                <div className="kpi-value" style={{ color: '#10b981' }}>{staffData.totalBatches}</div>
+                <div className="kpi-subtext">Active class schedules</div>
+              </div>
+            </div>
+
+            <div className="kpi-card">
+              <div className="kpi-icon-wrap warning">
+                <Bell size={22} />
+              </div>
+              <div className="kpi-info">
+                <div className="kpi-label">Announcements</div>
+                <div className="kpi-value" style={{ color: '#d97706' }}>{staffData.recentNotices.length}</div>
+                <div className="kpi-subtext">Active notices published</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Staff Actions & Recent Notices */}
+          <div className="grid-2-col" style={{ gap: '1.25rem' }}>
+            <div className="card-container">
+              <h3 style={{ fontSize: '1.15rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CalendarCheck size={18} color="var(--primary-blue)" /> Quick Attendance & Management
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+                As a Faculty/Staff member, you have full authorization to record, update, and manage course attendance logs for all enrolled students.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <Link to="/attendance" className="btn-primary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}>
+                  <CalendarCheck size={18} /> Open Attendance Portal
+                </Link>
+                <Link to="/batches" className="btn-secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}>
+                  <Layers size={18} /> View Batches & Class Schedule
+                </Link>
+                <Link to="/profile" className="btn-secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}>
+                  <Users size={18} /> View My Employee Profile
+                </Link>
+              </div>
+            </div>
+
+            <div className="card-container">
+              <h3 style={{ fontSize: '1.15rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Bell size={18} color="var(--primary-blue)" /> University Notices & Suggestions
+              </h3>
+              {staffData.recentNotices.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No active notices found.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {staffData.recentNotices.map(notice => (
+                    <div key={notice.id} style={{ padding: '0.75rem', background: 'var(--bg-subtle)', borderRadius: '8px', borderLeft: '3px solid var(--primary-blue)' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--primary-navy)' }}>{notice.title}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>{notice.content}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '6px' }}>{notice.created_at ? new Date(notice.created_at).toLocaleDateString() : 'Recent'}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       ) : (
         /* ========================================================================= */
         /* REQUIREMENT 5: STUDENT DASHBOARD */
         /* ========================================================================= */
         <>
+
           {/* Student Welcome Banner */}
           <div className="card" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff', borderRadius: '16px', padding: '1.75rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem' }}>

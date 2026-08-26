@@ -2,11 +2,18 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 export async function apiRequest(endpoint, options = {}) {
   const token = localStorage.getItem('access_token');
+  const isFormData = options.body instanceof FormData;
+
   const headers = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {})
   };
+
+  // If user passed headers directly that override Content-Type
+  if (isFormData && headers['Content-Type']) {
+    delete headers['Content-Type'];
+  }
 
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
@@ -59,12 +66,17 @@ export const api = {
   updateInstituteProfile: (data) => apiRequest('/institutes/profile', { method: 'PUT', body: JSON.stringify(data) }),
   getInstitutePaymentInfo: (instCode) => apiRequest(`/institutes/payment-info/${instCode}`),
   getInstituteDashboardStats: () => apiRequest('/institutes/dashboard-stats'),
+  getPaymentSettings: () => apiRequest('/institutes/payment-settings'),
+  updatePaymentSettings: (data) => apiRequest('/institutes/payment-settings', { method: 'PUT', body: JSON.stringify(data) }),
+  uploadPaymentQr: (formData) => apiRequest('/institutes/payment-qr-upload', { method: 'POST', body: formData }),
+  deletePaymentQr: () => apiRequest('/institutes/payment-qr', { method: 'DELETE' }),
 
   // Students
   registerStudent: (data) => apiRequest('/students/register', { method: 'POST', body: JSON.stringify(data) }),
   getStudent: (regId) => apiRequest(`/students/${regId}`),
   updateStudent: (regId, data) => apiRequest(`/students/${regId}`, { method: 'PUT', body: JSON.stringify(data) }),
   getAllStudents: () => apiRequest('/students/'),
+  getAttendanceStudentRoster: () => apiRequest('/students/attendance-roster'),
   getPendingApprovals: () => apiRequest('/students/pending-approvals/list'),
   approveStudent: (studentId, assignedRegistrationId) => apiRequest(`/students/${studentId}/approve`, { method: 'POST', body: JSON.stringify({ assigned_registration_id: assignedRegistrationId }) }),
   rejectStudent: (studentId, reason) => apiRequest(`/students/${studentId}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
@@ -104,9 +116,16 @@ export const api = {
   createFeePayment: (data) => apiRequest('/fees/', { method: 'POST', body: JSON.stringify(data) }),
   submitFeePayment: (data) => apiRequest('/fees/submit-payment', { method: 'POST', body: JSON.stringify(data) }),
   verifyFeePayment: (data) => apiRequest('/fees/verify', { method: 'POST', body: JSON.stringify(data) }),
+  rejectFeePayment: (data) => apiRequest('/fees/reject', { method: 'POST', body: JSON.stringify(data) }),
   getFeeVerifications: () => apiRequest('/fees/verification-list'),
   getStudentFees: (studentId) => apiRequest(`/fees/${studentId}`),
   getFeeSummary: (studentId) => apiRequest(`/fees/summary/${studentId}`),
+
+  // Study Materials
+  getStudyMaterials: () => apiRequest('/study-materials/'),
+  uploadStudyMaterial: (formData) => apiRequest('/study-materials/upload', { method: 'POST', body: formData }),
+  getStudyMaterialDownloadUrl: (materialId) => `${API_BASE_URL}/study-materials/${materialId}/download`,
+  deleteStudyMaterial: (materialId) => apiRequest(`/study-materials/${materialId}`, { method: 'DELETE' }),
 
   // Tax Invoices
   getStudentInvoices: (studentId) => apiRequest(`/invoices/student/${studentId}`),

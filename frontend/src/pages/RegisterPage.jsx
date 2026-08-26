@@ -72,39 +72,37 @@ export function RegisterPage() {
   const handleStudentSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setRegisteredInfo(null);
 
+    if (!studentForm.institute_code.trim()) return setError('Please enter your University Code (e.g. ITE-001).');
     if (!studentForm.name.trim()) return setError('Please enter your full name.');
-    if (!studentForm.email.trim() || !/\S+@\S+\.\S+/.test(studentForm.email)) return setError('Please enter a valid email address.');
-    if (!studentForm.mobile.trim() || studentForm.mobile.length < 10) return setError('Please enter a valid 10-digit mobile number.');
-    if (!studentForm.institute_code.trim()) return setError('Please enter your Institute Code (e.g. ITE-001).');
-    if (!studentForm.password || studentForm.password.length < 6) return setError('Password must be at least 6 characters.');
+    if (!studentForm.email.trim()) return setError('Please enter your email.');
+    if (!studentForm.password) return setError('Please create a password.');
     if (studentForm.password !== studentForm.confirmPassword) return setError('Passwords do not match.');
 
     setLoading(true);
     try {
-      const res = await api.selfRegisterStudent({
+      const response = await api.selfRegisterStudent({
         name: studentForm.name.trim(),
         email: studentForm.email.trim(),
         mobile: studentForm.mobile.trim(),
-        institute_code: studentForm.institute_code.trim(),
-        course: studentForm.course,
         password: studentForm.password,
+        institute_code: studentForm.institute_code.trim(),
         gender: studentForm.gender,
-        date_of_birth: studentForm.date_of_birth || null,
-        address: studentForm.address || null
+        date_of_birth: studentForm.date_of_birth || undefined,
+        address: studentForm.address || undefined,
+        course: studentForm.course || undefined
       });
 
       setRegisteredInfo({
         type: 'student',
-        registration_id: res.registration_id,
+        name: studentForm.name,
+        email: studentForm.email,
         institute_code: studentForm.institute_code.trim(),
-        name: studentForm.name.trim(),
-        email: studentForm.email.trim(),
+        registration_id: response.registration_id || response.student?.registration_id,
         course: studentForm.course
       });
     } catch (err) {
-      setError(err.message || 'Student registration failed.');
+      setError(err.message || 'Registration failed. Please verify your details.');
     } finally {
       setLoading(false);
     }
@@ -113,12 +111,10 @@ export function RegisterPage() {
   const handleInstituteSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setRegisteredInfo(null);
 
-    if (!instForm.name.trim()) return setError('Please enter Institute Name.');
-    if (!instForm.email.trim() || !/\S+@\S+\.\S+/.test(instForm.email)) return setError('Please enter valid email.');
-    if (!instForm.contact_number.trim()) return setError('Please enter contact number.');
-    if (!instForm.password || instForm.password.length < 6) return setError('Password must be at least 6 characters.');
+    if (!instForm.name.trim()) return setError('Please enter University Name.');
+    if (!instForm.email.trim()) return setError('Please enter official email.');
+    if (!instForm.password) return setError('Please create a password.');
     if (instForm.password !== instForm.confirmPassword) return setError('Passwords do not match.');
 
     setLoading(true);
@@ -126,19 +122,19 @@ export function RegisterPage() {
       const response = await api.registerInstitute({
         name: instForm.name.trim(),
         email: instForm.email.trim(),
+        password: instForm.password,
         contact_number: instForm.contact_number.trim(),
-        address: instForm.address.trim() || null,
-        preferred_code: instForm.preferred_code.trim() || null,
-        password: instForm.password
+        address: instForm.address.trim() || undefined,
+        preferred_code: instForm.preferred_code.trim() || undefined
       });
 
       setRegisteredInfo({
         type: 'institute',
         institute: response.institute,
-        login: response.login
+        admin_credentials: response.admin_credentials
       });
     } catch (err) {
-      setError(err.message || 'Institute registration failed.');
+      setError(err.message || 'University registration failed.');
     } finally {
       setLoading(false);
     }
@@ -163,9 +159,9 @@ export function RegisterPage() {
             {activeTab === 'student' ? <GraduationCap size={24} /> : <Building2 size={24} />}
           </div>
           <h1 style={{ fontSize: '22px', letterSpacing: '-0.5px' }}>
-            {activeTab === 'student' ? 'Direct Student Registration' : 'Register New Institute'}
+            {activeTab === 'student' ? 'Direct Student Registration' : 'Register New University'}
           </h1>
-          <p>AI Smart Institute Academic Portal</p>
+          <p>AI Smart University Academic Portal</p>
 
           {/* Tab Selection */}
           <div style={{
@@ -218,7 +214,7 @@ export function RegisterPage() {
                 gap: '6px'
               }}
             >
-              <Building2 size={16} /> Institute Register
+              <Building2 size={16} /> University Register
             </button>
           </div>
         </div>
@@ -247,7 +243,7 @@ export function RegisterPage() {
                     Student Registration Complete & Activated!
                   </h3>
                   <p style={{ margin: '0 0 16px', fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                    Your account under Institute Code <strong>[{registeredInfo.institute_code}]</strong> is active. You can log in immediately using your assigned Enrollment Number.
+                    Your account under University Code <strong>[{registeredInfo.institute_code}]</strong> is active. You can log in immediately using your assigned Enrollment Number.
                   </p>
 
                   <div style={{
@@ -266,7 +262,7 @@ export function RegisterPage() {
                       <strong>{registeredInfo.name}</strong> ({registeredInfo.email})
                     </div>
                     <div>
-                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Institute Code</span>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>University Code</span>
                       <strong style={{ color: 'var(--primary-blue)' }}>{registeredInfo.institute_code}</strong>
                     </div>
                     <div>
@@ -300,9 +296,9 @@ export function RegisterPage() {
               ) : (
                 <>
                   <CheckCircle2 size={48} style={{ color: '#10b981', margin: '0 auto 12px' }} />
-                  <h3 style={{ margin: '0 0 6px', color: '#065f46' }}>Institute Registration Complete!</h3>
+                  <h3 style={{ margin: '0 0 6px', color: '#065f46' }}>University Registration Complete!</h3>
                   <p style={{ margin: '0 0 14px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-                    Your institute environment is provisioned and ready.
+                    Your university environment is provisioned and ready.
                   </p>
 
                   <div style={{
@@ -317,7 +313,7 @@ export function RegisterPage() {
                     fontSize: '13px'
                   }}>
                     <div>
-                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Institute Name</span>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>University Name</span>
                       <strong>{registeredInfo.institute?.name}</strong>
                     </div>
                     <div>
@@ -353,13 +349,13 @@ export function RegisterPage() {
               }}>
                 <Sparkles size={16} color="#2563eb" style={{ flexShrink: 0 }} />
                 <span>
-                  Enter your <strong>Institute Code</strong> and select your desired <strong>Course</strong>. Registration is instant and your official Enrollment Number will be generated immediately upon sign up!
+                  Enter your <strong>University Code</strong> and select your desired <strong>Course</strong>. Registration is instant and your official Enrollment Number will be generated immediately upon sign up!
                 </span>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Institute Code <span className="required">*</span></label>
+                  <label className="form-label">University Code <span className="required">*</span></label>
                   <input
                     type="text"
                     className="form-control"
@@ -368,7 +364,7 @@ export function RegisterPage() {
                     onChange={(e) => setStudentForm({ ...studentForm, institute_code: e.target.value.toUpperCase() })}
                     required
                   />
-                  <small style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Enter your institute's assigned code</small>
+                  <small style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Enter your university's assigned code</small>
                 </div>
 
                 <div className="form-group">
@@ -503,14 +499,14 @@ export function RegisterPage() {
               </button>
             </form>
           ) : (
-            /* INSTITUTE REGISTRATION FORM */
+            /* UNIVERSITY REGISTRATION FORM */
             <form onSubmit={handleInstituteSubmit}>
               <div className="form-group">
-                <label className="form-label">Institute Name <span className="required">*</span></label>
+                <label className="form-label">University Name <span className="required">*</span></label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="e.g. AI Smart Institute"
+                  placeholder="e.g. AI Smart University"
                   value={instForm.name}
                   onChange={(e) => setInstForm({ ...instForm, name: e.target.value })}
                   required
@@ -519,7 +515,7 @@ export function RegisterPage() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Institute Code / Acronym</label>
+                  <label className="form-label">University Code / Acronym</label>
                   <input
                     type="text"
                     className="form-control"
@@ -533,7 +529,7 @@ export function RegisterPage() {
                   <input
                     type="email"
                     className="form-control"
-                    placeholder="admin@institute.com"
+                    placeholder="admin@university.com"
                     value={instForm.email}
                     onChange={(e) => setInstForm({ ...instForm, email: e.target.value })}
                     required
@@ -594,7 +590,7 @@ export function RegisterPage() {
                 style={{ marginTop: '0.75rem' }}
                 disabled={loading}
               >
-                {loading ? 'Registering Institute...' : 'Register Institute Account'}
+                {loading ? 'Registering University...' : 'Register University Account'}
               </button>
             </form>
           )}
@@ -608,7 +604,7 @@ export function RegisterPage() {
         </div>
 
         <div className="auth-footer">
-          <div>AI Smart Institute Academic Portal • Self Registration & Management</div>
+          <div>AI Smart University Academic Portal • Self Registration & Management</div>
         </div>
       </div>
     </div>

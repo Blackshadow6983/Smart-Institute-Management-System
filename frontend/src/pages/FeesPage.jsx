@@ -25,7 +25,7 @@ import {
 
 export function FeesPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('verification'); // 'verification', 'ledger', 'invoices'
+  const [activeTab, setActiveTab] = useState('verification'); // 'verification', 'config', 'invoices', 'summary'
   const [feeData, setFeeData] = useState(null);
   const [feeSummary, setFeeSummary] = useState(null);
   const [students, setStudents] = useState([]);
@@ -38,11 +38,30 @@ export function FeesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
+  // Payment Settings State
+  const [paymentSettings, setPaymentSettings] = useState({
+    payment_upi_id: '',
+    payment_upi_number: '',
+    payment_account_holder: '',
+    payment_bank_name: '',
+    payment_account_number: '',
+    payment_ifsc_code: '',
+    payment_qr_code_url: '',
+    payment_instructions: ''
+  });
+
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [qrFile, setQrFile] = useState(null);
+  const [qrUploading, setQrUploading] = useState(false);
+
   // Modals
   const [isSubmitPaymentModalOpen, setIsSubmitPaymentModalOpen] = useState(false);
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [selectedVerificationItem, setSelectedVerificationItem] = useState(null);
+  const [selectedRejectItem, setSelectedRejectItem] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
   const [selectedInvoiceUrl, setSelectedInvoiceUrl] = useState('');
 
   // Student Payment Submission Form
@@ -60,13 +79,28 @@ export function FeesPage() {
     notes: ''
   });
 
-  const role = (user?.role || 'student').toLowerCase();
+  const role = (user?.role || 'student').trim().toLowerCase();
   const isAdmin = ['admin', 'institute', 'institute_admin'].includes(role);
 
   const loadData = async () => {
     setLoading(true);
     setError('');
     try {
+      // Load payment configuration for all users
+      const settingsRes = await api.getPaymentSettings().catch(() => null);
+      if (settingsRes) {
+        setPaymentSettings({
+          payment_upi_id: settingsRes.payment_upi_id || '',
+          payment_upi_number: settingsRes.payment_upi_number || '',
+          payment_account_holder: settingsRes.payment_account_holder || '',
+          payment_bank_name: settingsRes.payment_bank_name || '',
+          payment_account_number: settingsRes.payment_account_number || '',
+          payment_ifsc_code: settingsRes.payment_ifsc_code || '',
+          payment_qr_code_url: settingsRes.payment_qr_code_url || '',
+          payment_instructions: settingsRes.payment_instructions || ''
+        });
+      }
+
       if (isAdmin) {
         const [verList, stuList, invList] = await Promise.allSettled([
           api.getFeeVerifications(),
@@ -133,6 +167,62 @@ export function FeesPage() {
     loadStudentLedger(sId);
   };
 
+  // Admin Payment Configuration Form Submit Handler
+  const handleSavePaymentSettings = async (e) => {
+    e.preventDefault();
+    setSavingSettings(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await api.updatePaymentSettings(paymentSettings);
+      setSuccess(res.message || 'Payment settings updated successfully!');
+      if (res.settings) {
+        setPaymentSettings(res.settings);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to update payment settings.');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  // Admin QR Code Upload Handler
+  const handleQrUpload = async (e) => {
+    e.preventDefault();
+    if (!qrFile) return;
+    setQrUploading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const formData = new FormData();
+      formData.append('file', qrFile);
+      const res = await api.uploadPaymentQr(formData);
+      setSuccess(res.message || 'QR Code uploaded successfully!');
+      if (res.payment_qr_code_url) {
+        setPaymentSettings((prev) => ({ ...prev, payment_qr_code_url: res.payment_qr_code_url }));
+      }
+      setQrFile(null);
+    } catch (err) {
+      setError(err.message || 'Failed to upload QR Code.');
+    } finally {
+      setQrUploading(false);
+    }
+  };
+
+  // Admin QR Code Removal Handler
+  const handleDeleteQr = async () => {
+    if (!window.confirm('Are you sure you want to remove the current Payment QR Code?')) return;
+    setError('');
+    setSuccess('');
+    try {
+      const res = await api.deletePaymentQr();
+      setSuccess(res.message || 'QR Code removed.');
+      setPaymentSettings((prev) => ({ ...prev, payment_qr_code_url: '' }));
+    } catch (err) {
+      setError(err.message || 'Failed to remove QR Code.');
+    }
+  };
+
   // Student Payment Submission Handler
   const handleStudentSubmitPayment = async (e) => {
     e.preventDefault();
@@ -157,7 +247,7 @@ export function FeesPage() {
     }
   };
 
-  // Admin Verification Submit Handler
+  // Admin Verification Submit Handler (APPROVE)
   const handleAdminVerifyPayment = async (e) => {
     e.preventDefault();
     if (!verifyForm.fee_id) return;
@@ -173,6 +263,29 @@ export function FeesPage() {
     }
   };
 
+  // Admin Rejection Submit Handler (REJECT)
+  const handleAdminRejectPayment = async (e) => {
+    e.preventDefault();
+    if (!selectedRejectItem?.id || !rejectionReason.trim()) {
+      setError('Rejection reason is required.');
+      return;
+    }
+    setError('');
+    setSuccess('');
+    try {
+      const res = await api.rejectFeePayment({
+        fee_id: selectedRejectItem.id,
+        rejection_reason: rejectionReason.trim()
+      });
+      setSuccess(res.message || 'Payment rejected.');
+      setIsRejectModalOpen(false);
+      setRejectionReason('');
+      loadData();
+    } catch (err) {
+      setError(err.message || 'Failed to reject payment.');
+    }
+  };
+
   const openVerifyModal = (item) => {
     setSelectedVerificationItem(item);
     setVerifyForm({
@@ -182,6 +295,12 @@ export function FeesPage() {
       notes: ''
     });
     setIsVerifyModalOpen(true);
+  };
+
+  const openRejectModal = (item) => {
+    setSelectedRejectItem(item);
+    setRejectionReason('');
+    setIsRejectModalOpen(true);
   };
 
   const viewInvoiceHtml = (invoiceId) => {
@@ -202,6 +321,11 @@ export function FeesPage() {
     const matchStatus = statusFilter ? v.status === statusFilter : true;
     return matchSearch && matchStatus;
   });
+
+  const pendingVerificationsCount = verifications.filter((v) =>
+    ['Pending Verification', 'Pending'].includes(v.status)
+  ).length;
+
 
   const totalCourseFee = feeSummary?.course_fee || feeData?.total_fee || 0;
   const paidAmount = feeSummary?.total_paid || feeData?.paid_amount || 0;
@@ -229,7 +353,7 @@ export function FeesPage() {
           <div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: '#ffffff' }}>
               <CreditCard size={28} color="#60a5fa" />
-              {isAdmin ? 'Institute Fee Verification & Tax Invoices' : 'My Fee Payments & Tax Invoices'}
+              {isAdmin ? 'University Fee Verification & Tax Invoices' : 'My Fee Payments & Tax Invoices'}
             </h1>
             <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '4px 0 0' }}>
               {isAdmin ? 'Verify student payment transactions, view gateway responses, and manage official Tax Invoices.' : 'Submit UTR transaction references, track real-time verification status, and view downloadable Tax Invoices.'}
@@ -252,7 +376,14 @@ export function FeesPage() {
                 onClick={() => setActiveTab('verification')}
                 style={{ padding: '6px 14px', fontSize: '0.85rem' }}
               >
-                <ShieldCheck size={16} style={{ marginRight: 6 }} /> Payment Verifications ({verifications.length})
+                <ShieldCheck size={16} style={{ marginRight: 6 }} /> Payment Verifications ({pendingVerificationsCount})
+              </button>
+              <button
+                className={`btn ${activeTab === 'config' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setActiveTab('config')}
+                style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+              >
+                <QrCode size={16} style={{ marginRight: 6 }} /> Payment Configuration
               </button>
               <button
                 className={`btn ${activeTab === 'invoices' ? 'btn-primary' : 'btn-secondary'}`}
@@ -293,7 +424,7 @@ export function FeesPage() {
             <div className="kpi-info">
               <div className="kpi-label">Total Course Fee</div>
               <div className="kpi-value">₹{parseFloat(totalCourseFee).toLocaleString()}</div>
-              <div className="kpi-subtext">Tuition & Institutional charges</div>
+              <div className="kpi-subtext">Tuition & University charges</div>
             </div>
           </div>
 
@@ -351,8 +482,8 @@ export function FeesPage() {
             >
               <option value="">All Verification Statuses</option>
               <option value="Paid / Successful">Paid / Successful</option>
-              <option value="Pending">Pending Verification</option>
-              <option value="Failed">Failed</option>
+              <option value="Pending Verification">Pending Verification</option>
+              <option value="Rejected">Rejected</option>
               <option value="Cancelled">Cancelled</option>
             </select>
           </div>
@@ -381,8 +512,9 @@ export function FeesPage() {
                 </thead>
                 <tbody>
                   {filteredVerifications.map((v) => {
-                    const isPaid = v.status === 'Paid / Successful';
-                    const isPending = v.status === 'Pending';
+                    const isPaid = v.status === 'Paid / Successful' || v.status === 'Paid';
+                    const isPending = v.status === 'Pending Verification' || v.status === 'Pending';
+                    const isRejected = v.status === 'Rejected';
 
                     return (
                       <tr key={v.id}>
@@ -400,19 +532,33 @@ export function FeesPage() {
                         <td style={{ fontWeight: 700, color: '#10b981' }}>₹{v.amount?.toLocaleString()}</td>
                         <td>
                           <span className={`badge ${isPaid ? 'success' : isPending ? 'warning' : 'danger'}`}>
-                            {v.status || 'Pending'}
+                            {v.status || 'Pending Verification'}
                           </span>
+                          {isRejected && v.verification_notes && (
+                            <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '4px' }}>
+                              Reason: {v.verification_notes}
+                            </div>
+                          )}
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                             {isPending && (
-                              <button
-                                className="btn-primary"
-                                style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#10b981', borderColor: '#10b981' }}
-                                onClick={() => openVerifyModal(v)}
-                              >
-                                Verify Payment
-                              </button>
+                              <>
+                                <button
+                                  className="btn-primary"
+                                  style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#10b981', borderColor: '#10b981' }}
+                                  onClick={() => openVerifyModal(v)}
+                                >
+                                  <CheckCircle2 size={12} style={{ marginRight: 4 }} /> Approve
+                                </button>
+                                <button
+                                  className="btn-secondary"
+                                  style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#ef4444', color: '#ffffff', borderColor: '#ef4444' }}
+                                  onClick={() => openRejectModal(v)}
+                                >
+                                  <XCircle size={12} style={{ marginRight: 4 }} /> Reject
+                                </button>
+                              </>
                             )}
                             {isPaid && (
                               <button
@@ -438,6 +584,158 @@ export function FeesPage() {
           )}
         </div>
       )}
+
+      {/* TAB: ADMIN PAYMENT CONFIGURATION */}
+      {isAdmin && activeTab === 'config' && (
+        <div className="grid-2-col" style={{ gap: '1.5rem' }}>
+          {/* Payment Info Form */}
+          <div className="card-container">
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CreditCard size={20} color="var(--primary-blue)" /> University Payment Settings
+            </h3>
+            <form onSubmit={handleSavePaymentSettings}>
+              <div className="form-group">
+                <label className="form-label">Official UPI ID</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. institute.billing@okicici"
+                  value={paymentSettings.payment_upi_id}
+                  onChange={(e) => setPaymentSettings({ ...paymentSettings, payment_upi_id: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">UPI Mobile / Contact Number</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. +91 9876543210"
+                  value={paymentSettings.payment_upi_number}
+                  onChange={(e) => setPaymentSettings({ ...paymentSettings, payment_upi_number: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Account Holder Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. AI Smart University Ltd."
+                  value={paymentSettings.payment_account_holder}
+                  onChange={(e) => setPaymentSettings({ ...paymentSettings, payment_account_holder: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Bank Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. HDFC Bank Ltd."
+                  value={paymentSettings.payment_bank_name}
+                  onChange={(e) => setPaymentSettings({ ...paymentSettings, payment_bank_name: e.target.value })}
+                />
+              </div>
+
+              <div className="grid-2-col" style={{ gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Account Number</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. 50100234918239"
+                    value={paymentSettings.payment_account_number}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, payment_account_number: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">IFSC Code</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. HDFC0001234"
+                    value={paymentSettings.payment_ifsc_code}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, payment_ifsc_code: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Payment Instructions for Students</label>
+                <textarea
+                  className="form-control"
+                  rows={3}
+                  placeholder="e.g. Transfer tuition fee amount using standard UPI/NetBanking apps and submit 12-digit UTR for verification."
+                  value={paymentSettings.payment_instructions}
+                  onChange={(e) => setPaymentSettings({ ...paymentSettings, payment_instructions: e.target.value })}
+                />
+              </div>
+
+              <button type="submit" className="btn-primary" disabled={savingSettings} style={{ padding: '10px 20px' }}>
+                {savingSettings ? 'Saving...' : 'Save Payment Configuration'}
+              </button>
+            </form>
+          </div>
+
+          {/* QR Code Manager */}
+          <div className="card-container">
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <QrCode size={20} color="var(--primary-blue)" /> Official UPI QR Code Manager
+            </h3>
+
+            <div style={{ textAlign: 'center', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', marginBottom: '1.25rem' }}>
+              {paymentSettings.payment_qr_code_url ? (
+                <div>
+                  <img
+                    src={paymentSettings.payment_qr_code_url}
+                    alt="University Official UPI QR Code"
+                    style={{ maxWidth: '220px', maxHeight: '220px', borderRadius: '12px', border: '2px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                  />
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+                    Current Official QR Code Preview
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleDeleteQr}
+                    style={{ marginTop: '12px', background: '#ef4444', color: '#ffffff', borderColor: '#ef4444', padding: '6px 14px', fontSize: '0.8rem' }}
+                  >
+                    Remove QR Code
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <QrCode size={64} style={{ color: '#94a3b8', marginBottom: '8px' }} />
+                  <div style={{ fontWeight: 600, color: 'var(--primary-navy)' }}>No QR Code Uploaded</div>
+                  <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                    Upload your university's official Google Pay / PhonePe / Paytm UPI QR image.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleQrUpload}>
+              <div className="form-group">
+                <label className="form-label">Upload / Replace QR Image (.PNG, .JPG, .WEBP)</label>
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp"
+                  className="form-control"
+                  onChange={(e) => setQrFile(e.target.files[0] || null)}
+                  required
+                />
+              </div>
+
+              <button type="submit" className="btn-primary" disabled={qrUploading || !qrFile} style={{ width: '100%', padding: '10px' }}>
+                {qrUploading ? 'Uploading...' : 'Upload / Replace QR Code'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
 
       {/* TAB 2: TAX INVOICES LIST (STUDENT & ADMIN) */}
       {activeTab === 'invoices' && (
@@ -561,15 +859,52 @@ export function FeesPage() {
         isOpen={isSubmitPaymentModalOpen}
         onClose={() => setIsSubmitPaymentModalOpen(false)}
         title="Fee Payment & UTR Submission"
-        maxWidth="500px"
+        maxWidth="520px"
       >
         <form onSubmit={handleStudentSubmitPayment}>
-          <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', padding: '1rem', borderRadius: '8px', marginBottom: '1.25rem', textAlign: 'center' }}>
-            <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '4px' }}>Institute Official UPI & QR Payment</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>UPI ID: <strong>institute.billing@okicici</strong></div>
-            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
-              Transfer tuition fee amount using standard UPI/NetBanking apps (Google Pay, PhonePe, Paytm, BHIM) and enter the 12-digit UTR Transaction ID below.
+          <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', padding: '1.25rem', borderRadius: '12px', marginBottom: '1.25rem' }}>
+            <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--primary-navy)', marginBottom: '8px', textAlign: 'center' }}>
+              University Official Fee Payment Details
             </div>
+
+            {/* QR Image Preview if configured */}
+            {paymentSettings.payment_qr_code_url && (
+              <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                <img
+                  src={paymentSettings.payment_qr_code_url}
+                  alt="Official UPI QR Code"
+                  style={{ maxWidth: '180px', maxHeight: '180px', borderRadius: '8px', border: '2px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+                />
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Scan QR to Pay via any UPI App</div>
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gap: '6px', fontSize: '0.85rem' }}>
+              {paymentSettings.payment_upi_id && (
+                <div><strong>UPI ID:</strong> <span style={{ fontFamily: 'monospace', color: 'var(--primary-blue)', fontWeight: 700 }}>{paymentSettings.payment_upi_id}</span></div>
+              )}
+              {paymentSettings.payment_upi_number && (
+                <div><strong>UPI Number / Phone:</strong> {paymentSettings.payment_upi_number}</div>
+              )}
+              {paymentSettings.payment_account_holder && (
+                <div><strong>Account Holder:</strong> {paymentSettings.payment_account_holder}</div>
+              )}
+              {paymentSettings.payment_bank_name && (
+                <div><strong>Bank Name:</strong> {paymentSettings.payment_bank_name}</div>
+              )}
+              {paymentSettings.payment_account_number && (
+                <div><strong>A/C Number:</strong> <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{paymentSettings.payment_account_number}</span></div>
+              )}
+              {paymentSettings.payment_ifsc_code && (
+                <div><strong>IFSC Code:</strong> <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{paymentSettings.payment_ifsc_code}</span></div>
+              )}
+            </div>
+
+            {paymentSettings.payment_instructions && (
+              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
+                {paymentSettings.payment_instructions}
+              </div>
+            )}
           </div>
 
           <div className="form-group">
@@ -610,9 +945,10 @@ export function FeesPage() {
               required
             />
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Institute Admins verify this UTR before marking status as Paid / Successful.
+              University Admins verify this UTR before marking status as Paid / Successful.
             </span>
           </div>
+
 
           <div className="modal-footer" style={{ margin: '1.25rem -1.25rem -1.25rem' }}>
             <button type="button" className="btn-secondary" onClick={() => setIsSubmitPaymentModalOpen(false)}>
@@ -625,11 +961,11 @@ export function FeesPage() {
         </form>
       </Modal>
 
-      {/* ADMIN PAYMENT VERIFICATION MODAL */}
+      {/* ADMIN PAYMENT VERIFICATION MODAL (APPROVE) */}
       <Modal
         isOpen={isVerifyModalOpen}
         onClose={() => setIsVerifyModalOpen(false)}
-        title={`Verify Payment: ${selectedVerificationItem?.student_name}`}
+        title={`Verify & Approve Payment: ${selectedVerificationItem?.student_name}`}
         maxWidth="480px"
       >
         <form onSubmit={handleAdminVerifyPayment}>
@@ -648,9 +984,7 @@ export function FeesPage() {
               required
             >
               <option value="Paid / Successful">Paid / Successful (Verified & Generates Tax Invoice)</option>
-              <option value="Pending">Pending Gateway Confirmation</option>
-              <option value="Failed">Failed / Rejected Payment</option>
-              <option value="Cancelled">Cancelled</option>
+              <option value="Pending Verification">Pending Gateway Confirmation</option>
             </select>
           </div>
 
@@ -685,6 +1019,47 @@ export function FeesPage() {
           </div>
         </form>
       </Modal>
+
+      {/* ADMIN PAYMENT REJECTION MODAL */}
+      <Modal
+        isOpen={isRejectModalOpen}
+        onClose={() => setIsRejectModalOpen(false)}
+        title={`Reject Payment: ${selectedRejectItem?.student_name}`}
+        maxWidth="480px"
+      >
+        <form onSubmit={handleAdminRejectPayment}>
+          <div style={{ fontSize: '0.9rem', marginBottom: '1rem', display: 'grid', gap: '6px', background: '#fef2f2', border: '1px solid #fecaca', padding: '12px', borderRadius: '8px', color: '#991b1b' }}>
+            <div><strong>Student:</strong> {selectedRejectItem?.student_name} ({selectedRejectItem?.registration_id})</div>
+            <div><strong>Amount:</strong> ₹{selectedRejectItem?.amount?.toLocaleString()}</div>
+            <div><strong>Submitted UTR:</strong> <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{selectedRejectItem?.transaction_id || 'N/A'}</span></div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Rejection Reason <span className="required">*</span></label>
+            <textarea
+              className="form-control"
+              rows={3}
+              placeholder="e.g. Invalid UTR / Transaction reference not found in bank statement"
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              required
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              This reason will be visible to the student on their fee dashboard.
+            </span>
+          </div>
+
+          <div className="modal-footer" style={{ margin: '1.25rem -1.25rem -1.25rem' }}>
+            <button type="button" className="btn-secondary" onClick={() => setIsRejectModalOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary" style={{ background: '#ef4444', borderColor: '#ef4444' }}>
+              Reject Payment
+            </button>
+          </div>
+        </form>
+      </Modal>
+
 
       {/* PRINTABLE TAX INVOICE PREVIEW MODAL */}
       <Modal

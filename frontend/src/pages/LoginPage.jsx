@@ -50,7 +50,7 @@ export function LoginPage() {
           }}>
             <Building2 size={22} />
           </div>
-          <h1>INSTITUTIONAL PORTAL</h1>
+          <h1>UNIVERSITY PORTAL</h1>
           <p>Multi-Tenant Academic & Student Management</p>
         </div>
 
@@ -65,7 +65,7 @@ export function LoginPage() {
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="form-label" htmlFor="username">
-                Institute Code / Student Enrollment ID / Email <span className="required">*</span>
+                University Code / Student Enrollment ID / Email <span className="required">*</span>
               </label>
               <div style={{ position: 'relative' }}>
                 <input
@@ -80,7 +80,7 @@ export function LoginPage() {
                 />
               </div>
               <small style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '3px' }}>
-                Admins use Institute Code (e.g. ITE-001). Students use Enrollment ID (e.g. ITE-001-STU001).
+                Admins use University Code (e.g. ITE-001). Students use Enrollment ID (e.g. ITE-001-STU001).
               </small>
             </div>
 
@@ -117,15 +117,15 @@ export function LoginPage() {
           </form>
 
           <div style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Need to register your Institute?{' '}
+            Need to register your University?{' '}
             <Link to="/register" style={{ fontWeight: 600, color: 'var(--primary-blue, #2563eb)' }}>
-              Register Institute &rarr;
+              Register University &rarr;
             </Link>
           </div>
         </div>
 
         <div className="auth-footer">
-          <div>Students receive login credentials via Gmail directly from their institute.</div>
+          <div>Students receive login credentials via Gmail directly from their university.</div>
         </div>
       </div>
     </div>

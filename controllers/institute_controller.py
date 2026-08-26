@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+import shutil
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
@@ -38,12 +41,28 @@ class InstituteUpdateRequest(BaseModel):
     contact_number: str | None = None
     address: str | None = None
     payment_upi_id: str | None = None
+    payment_upi_number: str | None = None
+    payment_account_holder: str | None = None
+    payment_bank_name: str | None = None
+    payment_account_number: str | None = None
+    payment_ifsc_code: str | None = None
     payment_qr_code_url: str | None = None
     payment_bank_details: str | None = None
     payment_instructions: str | None = None
     certificate_title: str | None = None
     certificate_signatory_name: str | None = None
     certificate_logo_url: str | None = None
+
+
+class PaymentSettingsUpdateRequest(BaseModel):
+    payment_upi_id: str | None = None
+    payment_upi_number: str | None = None
+    payment_account_holder: str | None = None
+    payment_bank_name: str | None = None
+    payment_account_number: str | None = None
+    payment_ifsc_code: str | None = None
+    payment_instructions: str | None = None
+
 
 
 class SendFeeNotificationRequest(BaseModel):
@@ -131,12 +150,187 @@ def get_current_institute_profile(
         "contact_number": institute.contact_number,
         "address": institute.address,
         "payment_upi_id": institute.payment_upi_id,
+        "payment_upi_number": institute.payment_upi_number,
+        "payment_account_holder": institute.payment_account_holder,
+        "payment_bank_name": institute.payment_bank_name,
+        "payment_account_number": institute.payment_account_number,
+        "payment_ifsc_code": institute.payment_ifsc_code,
         "payment_qr_code_url": institute.payment_qr_code_url,
         "payment_bank_details": institute.payment_bank_details,
         "payment_instructions": institute.payment_instructions,
         "certificate_title": institute.certificate_title,
         "certificate_signatory_name": institute.certificate_signatory_name,
         "certificate_logo_url": institute.certificate_logo_url
+    }
+
+
+# =========================================================
+# GET PAYMENT CONFIGURATION (Authenticated Users)
+# =========================================================
+
+@router.get("/payment-settings")
+def get_payment_settings(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    role = (current_user.get("role") or "").strip().lower()
+    is_admin = role in ["admin", "institute", "institute_admin"]
+
+    institute = get_institute_for_user(db, current_user)
+    if not institute:
+        inst_code = current_user.get("institute_code") or "DEFAULT"
+        institute = db.query(Institute).filter(Institute.institute_code == inst_code).first()
+
+    if not institute:
+        data = {
+            "payment_upi_id": "",
+            "payment_upi_number": "",
+            "payment_account_holder": "",
+            "payment_bank_name": "",
+            "payment_account_number": "",
+            "payment_ifsc_code": "",
+            "payment_qr_code_url": "",
+            "payment_instructions": ""
+        }
+        if is_admin:
+            data["role"] = "admin"
+            data["is_configured"] = False
+        return data
+
+    public_details = {
+        "payment_upi_id": institute.payment_upi_id or "",
+        "payment_upi_number": institute.payment_upi_number or "",
+        "payment_account_holder": institute.payment_account_holder or "",
+        "payment_bank_name": institute.payment_bank_name or "",
+        "payment_account_number": institute.payment_account_number or "",
+        "payment_ifsc_code": institute.payment_ifsc_code or "",
+        "payment_qr_code_url": institute.payment_qr_code_url or "",
+        "payment_instructions": institute.payment_instructions or ""
+    }
+
+    if is_admin:
+        public_details["role"] = "admin"
+        public_details["is_configured"] = bool(institute.payment_upi_id)
+        public_details["institute_code"] = institute.institute_code
+
+    return public_details
+
+
+
+# =========================================================
+# UPDATE PAYMENT CONFIGURATION (Admin Only)
+# =========================================================
+
+@router.put("/payment-settings")
+def update_payment_settings(
+    data: PaymentSettingsUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    institute = get_institute_for_user(db, current_user)
+    if not institute:
+        inst_code = current_user.get("institute_code") or "DEFAULT"
+        institute = db.query(Institute).filter(Institute.institute_code == inst_code).first()
+
+    if not institute:
+        raise HTTPException(status_code=404, detail="Institute profile not found")
+
+    if data.payment_upi_id is not None:
+        institute.payment_upi_id = data.payment_upi_id.strip()
+    if data.payment_upi_number is not None:
+        institute.payment_upi_number = data.payment_upi_number.strip()
+    if data.payment_account_holder is not None:
+        institute.payment_account_holder = data.payment_account_holder.strip()
+    if data.payment_bank_name is not None:
+        institute.payment_bank_name = data.payment_bank_name.strip()
+    if data.payment_account_number is not None:
+        institute.payment_account_number = data.payment_account_number.strip()
+    if data.payment_ifsc_code is not None:
+        institute.payment_ifsc_code = data.payment_ifsc_code.strip()
+    if data.payment_instructions is not None:
+        institute.payment_instructions = data.payment_instructions.strip()
+
+    db.commit()
+    db.refresh(institute)
+
+    return {
+        "message": "Institute payment configuration updated successfully!",
+        "settings": {
+            "payment_upi_id": institute.payment_upi_id or "",
+            "payment_upi_number": institute.payment_upi_number or "",
+            "payment_account_holder": institute.payment_account_holder or "",
+            "payment_bank_name": institute.payment_bank_name or "",
+            "payment_account_number": institute.payment_account_number or "",
+            "payment_ifsc_code": institute.payment_ifsc_code or "",
+            "payment_qr_code_url": institute.payment_qr_code_url or "",
+            "payment_instructions": institute.payment_instructions or ""
+        }
+    }
+
+
+# =========================================================
+# UPLOAD PAYMENT QR CODE (Admin Only)
+# =========================================================
+
+@router.post("/payment-qr-upload")
+def upload_payment_qr_code(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+        raise HTTPException(status_code=400, detail="Invalid image format. Allowed: JPG, PNG, WEBP.")
+
+    institute = get_institute_for_user(db, current_user)
+    if not institute:
+        inst_code = current_user.get("institute_code") or "DEFAULT"
+        institute = db.query(Institute).filter(Institute.institute_code == inst_code).first()
+
+    if not institute:
+        raise HTTPException(status_code=404, detail="Institute profile not found")
+
+    filename = f"qr_{institute.institute_code.lower()}_{uuid.uuid4().hex[:8]}{ext}"
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "payment_qr")
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    qr_url = f"/uploads/payment_qr/{filename}"
+    institute.payment_qr_code_url = qr_url
+    db.commit()
+    db.refresh(institute)
+
+    return {
+        "message": "Payment QR Code uploaded successfully!",
+        "payment_qr_code_url": qr_url
+    }
+
+
+# =========================================================
+# DELETE PAYMENT QR CODE (Admin Only)
+# =========================================================
+
+@router.delete("/payment-qr")
+def delete_payment_qr_code(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    institute = get_institute_for_user(db, current_user)
+    if not institute:
+        inst_code = current_user.get("institute_code") or "DEFAULT"
+        institute = db.query(Institute).filter(Institute.institute_code == inst_code).first()
+
+    if not institute:
+        raise HTTPException(status_code=404, detail="Institute profile not found")
+
+    institute.payment_qr_code_url = None
+    db.commit()
+
+    return {
+        "message": "Payment QR Code removed successfully."
     }
 
 
@@ -159,10 +353,16 @@ def get_institute_payment_info(
         "email": inst.email,
         "contact_number": inst.contact_number,
         "payment_upi_id": inst.payment_upi_id or f"{inst.institute_code.lower()}@upi",
+        "payment_upi_number": inst.payment_upi_number or "",
+        "payment_account_holder": inst.payment_account_holder or "",
+        "payment_bank_name": inst.payment_bank_name or "",
+        "payment_account_number": inst.payment_account_number or "",
+        "payment_ifsc_code": inst.payment_ifsc_code or "",
         "payment_qr_code_url": inst.payment_qr_code_url,
-        "payment_bank_details": inst.payment_bank_details or f"Bank: State Bank of India\nA/C: 1234567890\nIFSC: SBIN0001234\nBranch: Main Branch",
-        "payment_instructions": inst.payment_instructions or "Scan QR code or use UPI ID to complete fee payment. Submit UTR reference ID to Admin for verification."
+        "payment_bank_details": inst.payment_bank_details or "",
+        "payment_instructions": inst.payment_instructions or "Scan QR code or use UPI / Bank Account details to complete fee payment. Submit UTR reference ID to Admin for verification."
     }
+
 
 
 # =========================================================

@@ -42,6 +42,11 @@ class PaymentVerificationRequest(BaseModel):
     notes: str | None = None
 
 
+class PaymentRejectionRequest(BaseModel):
+    fee_id: int
+    rejection_reason: str
+
+
 # =========================================================
 # CREATE FEE PAYMENT (ADMIN)
 # =========================================================
@@ -51,12 +56,15 @@ def create_fee(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    role = current_user["role"].lower()
+    role = (current_user.get("role") or "").strip().lower()
     if role not in ["admin", "institute", "institute_admin"]:
         raise HTTPException(
             status_code=403,
             detail="Only Institute Admins can create fee payments"
         )
+
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero.")
 
     receipt = data.receipt_number or f"REC-{int(datetime.now().timestamp())}"
 
@@ -71,6 +79,13 @@ def create_fee(
     fee.status = "Paid / Successful"
     fee.verified_by = current_user.get("username")
     fee.verification_date = datetime.now()
+
+    # Update associated CourseApplication
+    app = db.query(CourseApplication).filter(CourseApplication.student_id == fee.student_id).first()
+    if app:
+        app.payment_status = "Paid"
+        app.amount_paid = int(fee.amount)
+
     db.commit()
 
     # Automatically generate Tax Invoice upon creating verified fee
@@ -96,9 +111,21 @@ def student_submit_payment(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    role = current_user.get("role", "").lower()
+    role = (current_user.get("role") or "").strip().lower()
     if role != "student":
         raise HTTPException(status_code=403, detail="Only students can submit fee payments")
+
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero.")
+
+    utr = (data.transaction_id or "").strip()
+    if not utr:
+        raise HTTPException(status_code=400, detail="UTR / Transaction reference ID is required.")
+
+    # Check duplicate UTR submission
+    existing = db.query(Fee).filter(Fee.transaction_id == utr).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="This UTR / Transaction reference has already been submitted.")
 
     student = db.query(Student).filter(Student.registration_id == current_user["username"]).first()
     if not student:
@@ -113,24 +140,39 @@ def student_submit_payment(
         amount=data.amount,
         payment_date=date.today(),
         payment_method=data.payment_method or "UPI",
-        status="Pending",
+        status="Pending Verification",
         receipt_number=receipt,
-        transaction_id=data.transaction_id.strip()
+        transaction_id=utr
     )
 
     db.add(fee)
+
+    # Synchronize CourseApplication payment status
+    app = db.query(CourseApplication).filter(CourseApplication.student_id == student.id).first()
+    if app:
+        app.payment_status = "Pending Verification"
+
     db.commit()
     db.refresh(fee)
 
     return {
-        "message": f"Payment of ₹{data.amount} submitted with UTR/Txn ID {data.transaction_id}. Pending Institute verification.",
-        "fee": fee
+        "message": f"Payment of ₹{data.amount} submitted with UTR ID '{utr}'. Pending Institute verification.",
+        "fee": {
+            "id": fee.id,
+            "institute_code": fee.institute_code,
+            "student_id": fee.student_id,
+            "amount": fee.amount,
+            "payment_date": str(fee.payment_date) if fee.payment_date else None,
+            "payment_method": fee.payment_method,
+            "status": fee.status,
+            "receipt_number": fee.receipt_number,
+            "transaction_id": fee.transaction_id
+        }
     }
 
 
 # =========================================================
-# ADMIN PAYMENT VERIFICATION ENDPOINT
-# VERIFIES STATUS: Paid / Successful, Failed, Cancelled
+# ADMIN PAYMENT VERIFICATION ENDPOINT (APPROVE / REJECT)
 # =========================================================
 @router.post("/verify")
 def verify_payment_status(
@@ -138,7 +180,7 @@ def verify_payment_status(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    role = current_user.get("role", "").lower()
+    role = (current_user.get("role") or "").strip().lower()
     if role not in ["admin", "institute", "institute_admin"]:
         raise HTTPException(status_code=403, detail="Admin authorization required for payment verification.")
 
@@ -147,7 +189,12 @@ def verify_payment_status(
         raise HTTPException(status_code=404, detail="Fee payment record not found.")
 
     raw_status = data.status.strip()
-    norm_status = "Paid / Successful" if raw_status.lower() in ["paid", "paid / successful", "successful", "approved"] else raw_status
+    if raw_status.lower() in ["paid", "paid / successful", "successful", "approved", "verified"]:
+        norm_status = "Paid / Successful"
+    elif raw_status.lower() in ["rejected", "reject", "failed"]:
+        norm_status = "Rejected"
+    else:
+        norm_status = raw_status
 
     fee.status = norm_status
     fee.verified_by = current_user.get("username")
@@ -157,10 +204,17 @@ def verify_payment_status(
     if data.notes:
         fee.verification_notes = data.notes
 
-    # Update associated CourseApplication payment_status if applicable
+    # Update associated CourseApplication payment_status
     app = db.query(CourseApplication).filter(CourseApplication.student_id == fee.student_id).first()
     if app:
-        app.payment_status = "Paid" if norm_status == "Paid / Successful" else norm_status
+        if norm_status == "Paid / Successful":
+            app.payment_status = "Paid"
+            app.amount_paid = int(fee.amount)
+        elif norm_status == "Rejected":
+            app.payment_status = "Rejected"
+        else:
+            app.payment_status = norm_status
+
         if app.payment_method is None and fee.payment_method:
             app.payment_method = fee.payment_method
 
@@ -181,10 +235,77 @@ def verify_payment_status(
             print("Invoice creation note:", err)
 
     return {
-        "message": f"Payment transaction verified as '{norm_status}'.",
-        "fee": fee,
+        "message": f"Payment transaction updated as '{norm_status}'.",
+        "fee": {
+            "id": fee.id,
+            "institute_code": fee.institute_code,
+            "student_id": fee.student_id,
+            "amount": fee.amount,
+            "payment_date": str(fee.payment_date) if fee.payment_date else None,
+            "payment_method": fee.payment_method,
+            "status": fee.status,
+            "receipt_number": fee.receipt_number,
+            "transaction_id": fee.transaction_id,
+            "verification_notes": fee.verification_notes,
+            "verified_by": fee.verified_by,
+            "verification_date": str(fee.verification_date) if fee.verification_date else None
+        },
         "tax_invoice": invoice
     }
+
+
+# =========================================================
+# ADMIN REJECT PAYMENT ENDPOINT
+# =========================================================
+@router.post("/reject")
+def reject_payment(
+    data: PaymentRejectionRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    role = (current_user.get("role") or "").strip().lower()
+    if role not in ["admin", "institute", "institute_admin"]:
+        raise HTTPException(status_code=403, detail="Admin authorization required for rejecting payments.")
+
+    if not data.rejection_reason or not data.rejection_reason.strip():
+        raise HTTPException(status_code=400, detail="Rejection reason is required.")
+
+    fee = db.query(Fee).filter(Fee.id == data.fee_id).first()
+    if not fee:
+        raise HTTPException(status_code=404, detail="Fee payment record not found.")
+
+    fee.status = "Rejected"
+    fee.verification_notes = data.rejection_reason.strip()
+    fee.verified_by = current_user.get("username")
+    fee.verification_date = datetime.now()
+
+    app = db.query(CourseApplication).filter(CourseApplication.student_id == fee.student_id).first()
+    if app:
+        app.payment_status = "Rejected"
+        app.remarks = f"Payment Rejected: {data.rejection_reason.strip()}"
+
+    db.commit()
+    db.refresh(fee)
+
+    return {
+        "message": f"Payment rejected. Reason: {data.rejection_reason.strip()}",
+        "fee": {
+            "id": fee.id,
+            "institute_code": fee.institute_code,
+            "student_id": fee.student_id,
+            "amount": fee.amount,
+            "payment_date": str(fee.payment_date) if fee.payment_date else None,
+            "payment_method": fee.payment_method,
+            "status": fee.status,
+            "receipt_number": fee.receipt_number,
+            "transaction_id": fee.transaction_id,
+            "verification_notes": fee.verification_notes,
+            "verified_by": fee.verified_by,
+            "verification_date": str(fee.verification_date) if fee.verification_date else None
+        }
+    }
+
+
 
 
 # =========================================================

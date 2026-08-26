@@ -41,7 +41,8 @@ def create_tax_invoice(
     if app:
         c = db.query(Course).filter(Course.id == app.course_id).first()
         if c:
-            course_name = c.name
+            course_name = getattr(c, "title", getattr(c, "name", "Academic Course Training"))
+
 
     # Calculate Tax Breakdown (18% GST included: 9% CGST + 9% SGST)
     total_amt = float(fee.amount or 0.0)

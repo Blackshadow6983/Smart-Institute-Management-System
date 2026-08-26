@@ -17,25 +17,68 @@ import {
 export function Chatbot() {
   const { user, isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      id: 'init-1',
-      sender: 'ai',
-      text: `Hello ${user?.username || ''}! I am your Institute AI Assistant. How can I help you with your academic records, attendance, fee statement, marks, or notices today?`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      suggestedActions: [
-        'What is my attendance?',
-        'How much fee is pending?',
-        'What are my marks?',
-        'What courses are available?',
-        'Show latest notices'
-      ]
+
+  const role = (user?.role || 'student').toLowerCase();
+  const isAdmin = ['admin', 'institute', 'institute_admin'].includes(role);
+  const isStaff = ['faculty', 'staff'].includes(role);
+
+  const getInitialMessage = () => {
+    const name = user?.name || user?.username || 'User';
+    if (isAdmin) {
+      return {
+        id: 'init-admin',
+        sender: 'ai',
+        text: `👑 Welcome Administrator ${name}! I am your Executive AI Management Assistant.\n\nI can help you monitor university financial health, verify fee payments, manage faculty & students, track admission applications, and configure payment settings.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        suggestedActions: [
+          'Pending Payment Verifications',
+          'Payment Configuration Settings',
+          'Admission Applications',
+          'Faculty & Staff Directory',
+          'University Revenue & Fees'
+        ]
+      };
+    } else if (isStaff) {
+      return {
+        id: 'init-staff',
+        sender: 'ai',
+        text: `👨‍🏫 Welcome Professor ${name}! I am your Faculty AI Academic Assistant.\n\nI can help you record student attendance, view your assigned cohort schedules, upload study materials, and enter assessment marks.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        suggestedActions: [
+          'Mark Student Attendance',
+          'My Assigned Batches & Schedule',
+          'Upload Study Materials',
+          'Enter Assessment Marks',
+          'Department Notices'
+        ]
+      };
+    } else {
+      return {
+        id: 'init-student',
+        sender: 'ai',
+        text: `👋 Hello ${name}! I am your Student AI Academic Assistant.\n\nI can look up your attendance percentage, fee balance & payment receipts, exam marks, course study materials, and completion certificates.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        suggestedActions: [
+          'What is my attendance?',
+          'How much fee is pending?',
+          'What are my marks?',
+          'Download study materials',
+          'Show latest notices'
+        ]
+      };
     }
-  ]);
+  };
+
+  const [messages, setMessages] = useState([getInitialMessage()]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Sync initial message when user changes
+  useEffect(() => {
+    setMessages([getInitialMessage()]);
+  }, [user]);
 
   // Auto-scroll to bottom of messages
   const scrollToBottom = () => {
@@ -82,7 +125,7 @@ export function Chatbot() {
       const errorMessage = {
         id: `err-${Date.now()}`,
         sender: 'ai',
-        text: `⚠️ Error: ${err.message || 'Unable to communicate with the Institute AI service. Please verify your connection.'}`,
+        text: `⚠️ Error: ${err.message || 'Unable to communicate with the University AI service. Please verify your connection.'}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isError: true
       };
@@ -100,21 +143,9 @@ export function Chatbot() {
   };
 
   const handleClearChat = () => {
-    setMessages([
-      {
-        id: `init-${Date.now()}`,
-        sender: 'ai',
-        text: `Chat reset. Hello ${user?.username || ''}! What institutional information can I look up for you?`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        suggestedActions: [
-          'What is my attendance?',
-          'How much fee is pending?',
-          'What are my marks?',
-          'Show latest notices'
-        ]
-      }
-    ]);
+    setMessages([getInitialMessage()]);
   };
+
 
   return (
     <>
@@ -123,8 +154,8 @@ export function Chatbot() {
         <button
           className="chatbot-floating-trigger"
           onClick={() => setIsOpen(true)}
-          aria-label="Open Institute AI Assistant"
-          title="Open Institute AI Assistant"
+          aria-label="Open University AI Assistant"
+          title="Open University AI Assistant"
         >
           <div className="chatbot-icon-pulse">
             <Bot size={22} color="#ffffff" />
@@ -144,7 +175,7 @@ export function Chatbot() {
               </div>
               <div>
                 <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#ffffff', lineHeight: 1.2 }}>
-                  Institute AI Assistant
+                  University AI Assistant
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10.5px', color: '#cbd5e1' }}>
                   <span style={{ width: '6px', height: '6px', backgroundColor: '#10b981', borderRadius: '50%', display: 'inline-block' }}></span>
@@ -275,7 +306,7 @@ export function Chatbot() {
               </button>
             </form>
             <div style={{ fontSize: '10px', color: 'var(--text-light)', marginTop: '4px', textAlign: 'center' }}>
-              Institute data is role-protected. Press Enter to send.
+              University data is role-protected. Press Enter to send.
             </div>
           </div>
         </div>
@@ -283,3 +314,4 @@ export function Chatbot() {
     </>
   );
 }
+

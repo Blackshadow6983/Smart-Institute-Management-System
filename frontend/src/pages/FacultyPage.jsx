@@ -37,10 +37,14 @@ export function FacultyPage() {
     setLoading(true);
     setError('');
     try {
-      if (user?.role === 'admin') {
+      const role = (user?.role || '').trim().toLowerCase();
+      const isAdmin = ['admin', 'institute', 'institute_admin'].includes(role);
+      const isStaff = ['faculty', 'staff'].includes(role);
+
+      if (isAdmin) {
         const data = await api.getAllFaculty();
         setFacultyList(Array.isArray(data) ? data : []);
-      } else if (user?.role === 'faculty') {
+      } else if (isStaff) {
         const res = await api.getFaculty(user.username);
         setFacultyList(res.faculty ? [res.faculty] : []);
       } else {
@@ -52,6 +56,7 @@ export function FacultyPage() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     loadFaculty();
@@ -135,6 +140,9 @@ export function FacultyPage() {
     );
   });
 
+  const role = (user?.role || '').trim().toLowerCase();
+  const isAdmin = ['admin', 'institute', 'institute_admin'].includes(role);
+
   return (
     <div>
       {error && (
@@ -155,9 +163,9 @@ export function FacultyPage() {
         <div className="card-header">
           <h2 className="card-title">
             <GraduationCap size={18} />
-            Institutional Faculty Directory
+            University Faculty Directory
           </h2>
-          {user?.role === 'admin' && (
+          {isAdmin && (
             <button className="btn btn-primary btn-sm" onClick={() => setIsAddModalOpen(true)}>
               <UserPlus size={14} />
               Register Faculty Member
@@ -224,7 +232,7 @@ export function FacultyPage() {
                         >
                           <Eye size={13} />
                         </button>
-                        {(user?.role === 'admin' || user?.username === f.employee_id) && (
+                        {(isAdmin || user?.username === f.employee_id) && (
                           <button
                             className="btn btn-secondary btn-sm"
                             style={{ padding: '3px 7px' }}
@@ -234,6 +242,7 @@ export function FacultyPage() {
                             <Edit size={13} />
                           </button>
                         )}
+
                       </td>
                     </tr>
                   ))}
@@ -283,7 +292,7 @@ export function FacultyPage() {
               <input
                 type="email"
                 className="form-control"
-                placeholder="faculty@institute.edu"
+                placeholder="faculty@university.edu"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
